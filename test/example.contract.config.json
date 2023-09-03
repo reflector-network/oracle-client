@@ -1,0 +1,34 @@
+{
+  "id": "CDFX...",
+  "decimals": 14,
+  "resolution": 120000,
+  "network": "Test SDF Future Network ; October 2022",
+  "horizonUrl": "https://rpc-futurenet.stellar.org:443",
+  "adminSecret": "SAAB...",
+  "assets": [
+    {
+      "type": 1,
+      "code": "CCS4..."
+    },
+    {
+      "type": 1,
+      "code": "CCGP..."
+    },
+    {
+      "type": 2,
+      "code": "EUR"
+    },
+    {
+      "type": 1,
+      "code": "CD47..."
+    },
+    {
+      "type": 1,
+      "code": "CCRL..."
+    },
+    {
+      "type": 2,
+      "code": "USD"
+    }
+  ]
+}
