@@ -102,17 +102,18 @@ function buildAssetScVal(asset) {
  * @returns {*}
  */
 function getSorobanResultValue(result) {
-    const value = xdr.TransactionMeta.fromXDR(result, 'base64').value().sorobanMeta().returnValue().value()
-    if (value === false) //if footprint's data is different from the contract execution data, the result is false
+    const value = result.value().sorobanMeta().returnValue()
+    if (value.value() === false) //if footprint's data is different from the contract execution data, the result is false
         return undefined
     return value
 }
 
 /**
- * @param {any} xdrAsset - XDR asset
+ * @param {any} xdrAssetResult - XDR asset result
  * @returns {Asset}
  */
-function parseXdrAssetResult(xdrAsset) {
+function parseXdrAssetResult(xdrAssetResult) {
+    const xdrAsset = xdrAssetResult.value()
     const assetType = xdrAsset[0].value().toString()
     switch (AssetType[assetType]) {
         case AssetType.Generic:
@@ -125,10 +126,11 @@ function parseXdrAssetResult(xdrAsset) {
 }
 
 /**
- * @param {any} xdrPrice - XDR price object
+ * @param {any} xdrPriceResult - XDR price result
  * @returns {{price: BigInt, timestamp: BigInt}}
  */
-function parseXdrPriceResult(xdrPrice) {
+function parseXdrPriceResult(xdrPriceResult) {
+    const xdrPrice = xdrPriceResult.value()
     return {
         price: scValToBigInt(xdrPrice[0].val()),
         timestamp: scValToBigInt(xdrPrice[1].val())
@@ -565,7 +567,7 @@ class OracleClient {
      * @returns {string} - Keypair public key
      */
     static parseAdminResult(result) {
-        const adminBuffer = getSorobanResultValue(result)?.value()?.value()
+        const adminBuffer = getSorobanResultValue(result)?.value()?.value()?.value()
         if (adminBuffer === undefined)
             return null
         const adminPublicKey = new Keypair({type: 'ed25519', publicKey: adminBuffer})
@@ -591,7 +593,7 @@ class OracleClient {
         const val = getSorobanResultValue(result)
         if (val === undefined)
             return null
-        return Number(val)
+        return Number(val.value())
     }
 
     /**
@@ -603,8 +605,8 @@ class OracleClient {
         if (val === undefined)
             return null
         const assets = []
-        for (const asset of val)
-            assets.push(parseXdrAssetResult(asset.value()))
+        for (const assetResult of val.value())
+            assets.push(parseXdrAssetResult(assetResult))
         return assets
     }
 
@@ -628,8 +630,8 @@ class OracleClient {
         if (val === undefined)
             return null
         const prices = []
-        for (const price of val)
-            prices.push(parseXdrPriceResult(price.value()))
+        for (const priceResult of val.value())
+            prices.push(parseXdrPriceResult(priceResult))
         return prices
     }
 

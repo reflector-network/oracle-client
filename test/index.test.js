@@ -4,7 +4,7 @@ const {exec} = require('child_process')
 const {Keypair, Server, TransactionBuilder, Operation} = require('soroban-client')
 const Client = require('../src')
 const AssetType = require('../src/asset-type')
-const contractConfig = require('./contract.config.json')
+const contractConfig = require('./example.contract.config.json')
 
 if (contractConfig.assets.length < 2)
     throw new Error('Need at least 2 assets to run tests')
@@ -333,7 +333,7 @@ test('x_twap', async () => {
 }, 300000)
 
 test('lasttimestamp', async () => {
-    submitTx(client.lastTimestamp(account, txOptions), response => {
+    await submitTx(client.lastTimestamp(account, txOptions), response => {
         const timestamp = Client.parseNumberResult(response.resultMetaXdr)
         expect(timestamp).toBeGreaterThan(0)
         return `Timestamp: ${timestamp}`
@@ -341,7 +341,8 @@ test('lasttimestamp', async () => {
 }, 300000)
 
 async function submitTx(txPromise, processResponse) {
-    const signatures = signTransaction(await txPromise)
+    const tx = await txPromise
+    const signatures = signTransaction(tx)
     const response = await client.submitTransaction(tx, signatures)
     const additional = processResponse(response)
 
