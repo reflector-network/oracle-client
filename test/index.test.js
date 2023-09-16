@@ -64,7 +64,7 @@ async function prepare() {
     nodesKeypairs = Array.from({length: 5}, () => (Keypair.random()))
 
     async function deployContract() {
-        const command = `soroban contract deploy --wasm ./test/se_price_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
+        const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
         return await new Promise((resolve, reject) => {
             exec(command, (error, stdout, stderr) => {
                 if (error) {
