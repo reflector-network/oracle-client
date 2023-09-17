@@ -170,6 +170,12 @@ test('config', async () => {
     })
 }, 300000)
 
+test('bump', async () => {
+    await submitTx(client.bump(account, 500_000, txOptions), response => {
+        expect(response).toBeDefined()
+    })
+}, 300000)
+
 test('add_assets', async () => {
     await submitTx(client.addAssets(account, contractConfig.assets.slice(initAssetLength), txOptions), response => {
         expect(response).toBeDefined()

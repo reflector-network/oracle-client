@@ -206,6 +206,26 @@ class OracleClient {
     }
 
     /**
+     * Builds a transaction to bump contract instance storage
+     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {number} ledgersToLive - Number of ledgers to live
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async bump(source, ledgersToLive, options = {fee: 100}) {
+        return await buildTransaction(
+            this,
+            source,
+            this.contract.call(
+                'bump',
+                xdr.ScVal.scvU32(ledgersToLive)
+            ),
+            options,
+            this.network
+        )
+    }
+
+    /**
      * Builds a transaction to register assets
      * @param {string|Account} source - Valid Stellar account ID, or Account object
      * @param {Asset[]} assets - Array of assets
