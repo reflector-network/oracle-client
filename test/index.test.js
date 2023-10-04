@@ -33,6 +33,7 @@ let admin
 let account
 let nodesKeypairs
 let contractId
+let updateContractWasmHash
 /**
  * @type {Client}
  */
@@ -56,15 +57,14 @@ async function sendTransaction(server, tx) {
 }
 
 async function createAccount(publicKey) {
-    return await server.requestAirdrop(publicKey, 'https://friendbot-futurenet.stellar.org')
+    return await server.requestAirdrop(publicKey, contractConfig.friendbotUrl)
 }
 
 async function prepare() {
     admin = Keypair.random()
     nodesKeypairs = Array.from({length: 5}, () => (Keypair.random()))
 
-    async function deployContract() {
-        const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
+    async function exexCommand(command) {
         return await new Promise((resolve, reject) => {
             exec(command, (error, stdout, stderr) => {
                 if (error) {
@@ -82,8 +82,19 @@ async function prepare() {
         })
     }
 
+    async function deployContract() {
+        const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
+        return await exexCommand(command)
+    }
+
+    async function installUpdateContract() {
+        const command = `soroban contract install --wasm ./test/reflector_oracle_2.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
+        return await exexCommand(command)
+    }
+
     await createAccount(admin.publicKey())
     contractId = await deployContract()
+    updateContractWasmHash = await installUpdateContract()
 
     console.log(`Contract ID: ${contractId}`)
 
@@ -167,6 +178,14 @@ test('config', async () => {
         period
     }, txOptions), response => {
         expect(response).toBeDefined()
+    })
+}, 300000)
+
+test('version', async () => {
+    await submitTx(client.version(account, txOptions), response => {
+        const version = Client.parseNumberResult(response.resultMetaXdr)
+        expect(version).toBeDefined()
+        return `Version: ${version}`
     })
 }, 300000)
 
@@ -282,6 +301,15 @@ test('price', async () => {
     })
 }, 300000)
 
+
+test('price (non existing)', async () => {
+    await submitTx(client.price(account, contractConfig.assets[1], 10000000000, txOptions), response => {
+        const price = Client.parsePriceResult(response.resultMetaXdr)
+        expect(price).toBeDefined()
+        return `Price: ${priceToString(price)}`
+    })
+}, 300000)
+
 test('x_price', async () => {
     await submitTx(client.xPrice(account, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
@@ -344,6 +372,13 @@ test('lasttimestamp', async () => {
         expect(timestamp).toBeGreaterThan(0)
         return `Timestamp: ${timestamp}`
     })
+}, 300000)
+
+test('update_contract', async () => {
+    await submitTx(client.updateContract(account, {
+        admin: admin.publicKey(),
+        wasmHash: updateContractWasmHash
+    }, txOptions), () => {})
 }, 300000)
 
 async function submitTx(txPromise, processResponse) {

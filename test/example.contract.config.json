@@ -1,10 +1,9 @@
 {
-  "id": "CDFX...",
   "decimals": 14,
   "resolution": 120000,
-  "network": "Test SDF Future Network ; October 2022",
-  "horizonUrl": "https://rpc-futurenet.stellar.org:443",
-  "adminSecret": "SAAB...",
+  "network": "Test SDF Network ; September 2015",
+  "horizonUrl": "https://soroban-testnet.stellar.org",
+  "friendbotUrl": "https://friendbot.stellar.org",
   "assets": [
     {
       "type": 1,

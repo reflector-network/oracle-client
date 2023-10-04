@@ -131,6 +131,8 @@ function parseXdrAssetResult(xdrAssetResult) {
  */
 function parseXdrPriceResult(xdrPriceResult) {
     const xdrPrice = xdrPriceResult.value()
+    if (!xdrPrice)
+        return null
     return {
         price: scValToBigInt(xdrPrice[0].val()),
         timestamp: scValToBigInt(xdrPrice[1].val())
@@ -175,6 +177,27 @@ class OracleClient {
         this.network = network
         this.horizonUrl = horizonUrl
         this.server = new Server(horizonUrl, {allowHttp: true})
+    }
+
+    /**
+     * Builds a transaction for updating the contract
+     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {{admin: string, wasmHash: string}} updateContractData - Wasm hash
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async updateContract(source, updateContractData, options = {fee: 100}) {
+        return await buildTransaction(
+            this,
+            source,
+            this.contract.call(
+                'update_contract',
+                new Address(updateContractData.admin).toScVal(),
+                xdr.ScVal.scvBytes(Buffer.from(updateContractData.wasmHash, 'hex'))
+            ),
+            options,
+            this.network
+        )
     }
 
     /**
@@ -287,6 +310,17 @@ class OracleClient {
             options,
             this.network
         )
+    }
+
+
+    /**
+     * Builds a transaction to get contract major version
+     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async version(source, options = {fee: 100}) {
+        return await buildTransaction(this, source, this.contract.call('version'), options, this.network)
     }
 
     /**
