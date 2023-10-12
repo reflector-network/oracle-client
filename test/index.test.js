@@ -196,14 +196,20 @@ test('bump', async () => {
 }, 300000)
 
 test('add_assets', async () => {
-    await submitTx(client.addAssets(account, contractConfig.assets.slice(initAssetLength), txOptions), response => {
+    await submitTx(client.addAssets(account, {
+        admin: admin.publicKey(),
+        assets: contractConfig.assets.slice(initAssetLength)
+    }, txOptions), response => {
         expect(response).toBeDefined()
     })
 }, 300000)
 
 test('set_period', async () => {
     period += contractConfig.resolution
-    await submitTx(client.setPeriod(account, period, txOptions), response => {
+    await submitTx(client.setPeriod(account, {
+        admin: admin.publicKey(),
+        period
+    }, txOptions), response => {
         expect(response).toBeDefined()
     })
 
@@ -218,7 +224,7 @@ test('set_price', async () => {
         const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
 
         const timestamp = lastTimestamp += contractConfig.resolution
-        await submitTx(client.setPrice(account, prices, timestamp, txOptions), response => {
+        await submitTx(client.setPrice(account, {admin: admin.publicKey(), prices, timestamp}, txOptions), response => {
             expect(response).toBeDefined()
         })
     }
@@ -230,14 +236,17 @@ test('set_price (extra price)', async () => {
         const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
 
         const timestamp = lastTimestamp += contractConfig.resolution
-        await submitTx(client.setPrice(account, prices, timestamp, txOptions), response => {
+        await submitTx(client.setPrice(account, {admin: admin.publicKey(), prices, timestamp}, txOptions), response => {
             expect(response).toBeDefined()
         })
     }
 }, 300000)
 
 test('add_asset (extra asset)', async () => {
-    await submitTx(client.addAssets(account, [extraAsset], txOptions), response => {
+    await submitTx(client.addAssets(account, {
+        admin: admin.publicKey(),
+        assets: [extraAsset]
+    }, txOptions), response => {
         expect(response).toBeDefined()
     })
 }, 300000)
@@ -378,7 +387,7 @@ test('update_contract', async () => {
     await submitTx(client.updateContract(account, {
         admin: admin.publicKey(),
         wasmHash: updateContractWasmHash
-    }, txOptions), () => {})
+    }, txOptions), () => { })
 }, 300000)
 
 async function submitTx(txPromise, processResponse) {

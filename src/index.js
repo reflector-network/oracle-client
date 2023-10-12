@@ -251,17 +251,17 @@ class OracleClient {
     /**
      * Builds a transaction to register assets
      * @param {string|Account} source - Valid Stellar account ID, or Account object
-     * @param {Asset[]} assets - Array of assets
+     * @param {{admin: string, assets: Asset[]}} update - Array of assets
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async addAssets(source, assets, options = {fee: 100}) {
+    async addAssets(source, update, options = {fee: 100}) {
         return await buildTransaction(this,
             source,
             this.contract.call(
                 'add_assets',
-                new Address(getAccountId(source)).toScVal(),
-                xdr.ScVal.scvVec(assets.map(asset => buildAssetScVal(asset)))
+                new Address(getAccountId(update.admin)).toScVal(),
+                xdr.ScVal.scvVec(update.assets.map(asset => buildAssetScVal(asset)))
             ),
             options,
             this.network
@@ -271,17 +271,17 @@ class OracleClient {
     /**
      * Builds a transaction to update period
      * @param {string|Account} source - Valid Stellar account ID, or Account object
-     * @param {number} period - Redeem period in milliseconds
+     * @param {{admin: string, period: number}} update - Retention period in milliseconds
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async setPeriod(source, period, options = {fee: 100}) {
+    async setPeriod(source, update, options = {fee: 100}) {
         return await buildTransaction(this,
             source,
             this.contract.call(
                 'set_period',
-                new Address(getAccountId(source)).toScVal(),
-                xdr.ScVal.scvU64(xdr.Uint64.fromString(period.toString()))
+                new Address(getAccountId(update.admin)).toScVal(),
+                xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))
             ),
             options,
             this.network
@@ -291,21 +291,20 @@ class OracleClient {
     /**
      * Builds a transaction to set prices
      * @param {string|Account} source - Valid Stellar account ID, or Account object
-     * @param {BigInt[]} updates - Array of prices
-     * @param {number} timestamp - Timestamp in milliseconds
+     * @param {{admin: string, prices: BigInt[], timestamp: number}} update - Array of prices
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async setPrice(source, updates, timestamp, options = {fee: 100}) {
-        const scValPrices = xdr.ScVal.scvVec(updates.map(u => nativeToScVal(u, {type: 'i128'})))
+    async setPrice(source, update, options = {fee: 100}) {
+        const scValPrices = xdr.ScVal.scvVec(update.prices.map(u => nativeToScVal(u, {type: 'i128'})))
         return await buildTransaction(
             this,
             source,
             this.contract.call(
                 'set_price',
-                new Address(getAccountId(source)).toScVal(),
+                new Address(getAccountId(update.admin)).toScVal(),
                 scValPrices,
-                xdr.ScVal.scvU64(xdr.Uint64.fromString(timestamp.toString()))
+                xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
             ),
             options,
             this.network
