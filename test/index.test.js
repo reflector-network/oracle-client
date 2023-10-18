@@ -13,7 +13,7 @@ const initAssetLength = 1
 
 const server = new Server(contractConfig.horizonUrl)
 
-const extraAsset = {type: AssetType.Generic, code: 'JPY'}
+const extraAsset = {type: AssetType.Other, code: 'JPY'}
 
 const assetToString = (asset) => !asset ? 'null' : `${asset.type}:${asset.code}`
 

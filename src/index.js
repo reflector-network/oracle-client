@@ -90,8 +90,8 @@ function buildAssetScVal(asset) {
     switch (asset.type) {
         case AssetType.Stellar:
             return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Stellar'), new Address(asset.code).toScVal()])
-        case AssetType.Generic:
-            return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Generic'), xdr.ScVal.scvSymbol(asset.code)])
+        case AssetType.Other:
+            return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Other'), xdr.ScVal.scvSymbol(asset.code)])
         default:
             throw new Error('Invalid asset type')
     }
@@ -116,8 +116,8 @@ function parseXdrAssetResult(xdrAssetResult) {
     const xdrAsset = xdrAssetResult.value()
     const assetType = xdrAsset[0].value().toString()
     switch (AssetType[assetType]) {
-        case AssetType.Generic:
-            return {type: AssetType.Generic, code: xdrAsset[1].value().toString()}
+        case AssetType.Other:
+            return {type: AssetType.Other, code: xdrAsset[1].value().toString()}
         case AssetType.Stellar:
             return {type: AssetType.Stellar, code: Address.contract(xdrAsset[1].value().value()).toString()}
         default:
