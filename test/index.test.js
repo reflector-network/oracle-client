@@ -1,7 +1,7 @@
 /*eslint-disable no-undef */
 const crypto = require('crypto')
 const {exec} = require('child_process')
-const {Keypair, Server, TransactionBuilder, Operation} = require('soroban-client')
+const {Keypair, SorobanRpc, TransactionBuilder, Operation} = require('stellar-sdk')
 const Client = require('../src')
 const AssetType = require('../src/asset-type')
 const contractConfig = require('./example.contract.config.json')
@@ -11,7 +11,7 @@ if (contractConfig.assets.length < 2)
 
 const initAssetLength = 1
 
-const server = new Server(contractConfig.horizonUrl)
+const server = new SorobanRpc.Server(contractConfig.horizonUrl)
 
 const extraAsset = {type: AssetType.Other, code: 'JPY'}
 

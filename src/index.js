@@ -1,5 +1,5 @@
 const {
-    Server,
+    SorobanRpc,
     Contract,
     TransactionBuilder,
     Address,
@@ -9,7 +9,7 @@ const {
     Keypair,
     scValToBigInt,
     nativeToScVal
-} = require('soroban-client')
+} = require('stellar-sdk')
 const AssetType = require('./asset-type')
 
 /**
@@ -46,7 +46,7 @@ const AssetType = require('./asset-type')
  */
 
 /**
- * @typedef {import('soroban-client').SorobanRpc.GetTransactionResponse} TransactionResponse
+ * @typedef {import('stellar-sdk').SorobanRpc.GetTransactionResponse} TransactionResponse
  */
 
 /**
@@ -54,10 +54,9 @@ const AssetType = require('./asset-type')
  * @param {string|Account} source - Valid Stellar account ID, or Account object
  * @param {xdr.Operation} operation - Stellar operation
  * @param {TxOptions} options - Transaction options
- * @param {string} network - Stellar network
  * @returns {Promise<Transaction>}
  */
-async function buildTransaction(client, source, operation, options, network) {
+async function buildTransaction(client, source, operation, options) {
     let sourceAccount = source
 
     if (typeof source !== 'object')
@@ -65,7 +64,7 @@ async function buildTransaction(client, source, operation, options, network) {
 
     const txBuilderOptions = structuredClone(options)
     txBuilderOptions.memo = options.memo ? Memo.text(options.memo) : null
-    txBuilderOptions.networkPassphrase = network
+    txBuilderOptions.networkPassphrase = client.network
 
     const transaction = new TransactionBuilder(sourceAccount, txBuilderOptions)
         .addOperation(operation)
@@ -166,7 +165,7 @@ class OracleClient {
     horizonUrl
 
     /**
-     * @type {Server}
+     * @type {SorobanRpc.Server}
      * @description Horizon server instance
      */
     server
@@ -176,7 +175,7 @@ class OracleClient {
         this.contract = new Contract(contractId)
         this.network = network
         this.horizonUrl = horizonUrl
-        this.server = new Server(horizonUrl, {allowHttp: true})
+        this.server = new SorobanRpc.Server(horizonUrl, {allowHttp: true})
     }
 
     /**
@@ -195,8 +194,7 @@ class OracleClient {
                 new Address(updateContractData.admin).toScVal(),
                 xdr.ScVal.scvBytes(Buffer.from(updateContractData.wasmHash, 'hex'))
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -223,8 +221,7 @@ class OracleClient {
             this,
             source,
             this.contract.call('config', new Address(getAccountId(source)).toScVal(), configScVal),
-            options,
-            this.network
+            options
         )
     }
 
@@ -243,8 +240,7 @@ class OracleClient {
                 'bump',
                 xdr.ScVal.scvU32(ledgersToLive)
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -256,15 +252,15 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async addAssets(source, update, options = {fee: 100}) {
-        return await buildTransaction(this,
+        return await buildTransaction(
+            this,
             source,
             this.contract.call(
                 'add_assets',
                 new Address(getAccountId(update.admin)).toScVal(),
                 xdr.ScVal.scvVec(update.assets.map(asset => buildAssetScVal(asset)))
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -276,15 +272,15 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async setPeriod(source, update, options = {fee: 100}) {
-        return await buildTransaction(this,
+        return await buildTransaction(
+            this,
             source,
             this.contract.call(
                 'set_period',
                 new Address(getAccountId(update.admin)).toScVal(),
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -306,8 +302,7 @@ class OracleClient {
                 scValPrices,
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -319,7 +314,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async version(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('version'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('version'), options)
     }
 
     /**
@@ -329,7 +324,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async admin(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('admin'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('admin'), options)
     }
 
     /**
@@ -339,7 +334,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async base(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('base'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('base'), options)
     }
 
     /**
@@ -349,7 +344,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async decimals(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('decimals'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('decimals'), options)
     }
 
     /**
@@ -359,7 +354,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async resolution(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('resolution'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('resolution'), options)
     }
 
     /**
@@ -369,7 +364,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async period(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('period'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('period'), options)
     }
 
     /**
@@ -379,7 +374,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async assets(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('assets'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('assets'), options)
     }
 
     /**
@@ -389,7 +384,7 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async lastTimestamp(source, options = {fee: 100}) {
-        return await buildTransaction(this, source, this.contract.call('last_timestamp'), options, this.network)
+        return await buildTransaction(this, source, this.contract.call('last_timestamp'), options)
     }
 
     /**
@@ -409,8 +404,7 @@ class OracleClient {
                 buildAssetScVal(asset),
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(timestamp.toString()))
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -433,8 +427,7 @@ class OracleClient {
                 buildAssetScVal(quoteAsset),
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(timestamp.toString()))
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -450,8 +443,7 @@ class OracleClient {
             this,
             source,
             this.contract.call('lastprice', buildAssetScVal(asset)),
-            options,
-            this.network
+            options
         )
     }
 
@@ -472,8 +464,7 @@ class OracleClient {
                 buildAssetScVal(baseAsset),
                 buildAssetScVal(quoteAsset)
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -494,8 +485,7 @@ class OracleClient {
                 buildAssetScVal(asset),
                 xdr.ScVal.scvU32(records)
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -518,8 +508,7 @@ class OracleClient {
                 buildAssetScVal(quoteAsset),
                 xdr.ScVal.scvU32(records)
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -540,8 +529,7 @@ class OracleClient {
                 buildAssetScVal(asset),
                 xdr.ScVal.scvU32(records)
             ),
-            options,
-            this.network
+            options
         )
     }
 
@@ -564,8 +552,7 @@ class OracleClient {
                 buildAssetScVal(quoteAsset),
                 xdr.ScVal.scvU32(records)
             ),
-            options,
-            this.network
+            options
         )
     }
 
