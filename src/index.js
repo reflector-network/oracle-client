@@ -33,6 +33,9 @@ const AssetType = require('./asset-type')
  * @property {string} admin - Valid Stellar account ID
  * @property {Asset[]} assets - Array of assets
  * @property {number} period - Redeem period in milliseconds
+ * @property {number} decimals - Price precision
+ * @property {number} resolution - Price resolution
+ * @property {number} baseAsset - Base asset for the price
  */
 
 /**
@@ -212,10 +215,13 @@ class OracleClient {
                 key: xdr.ScVal.scvSymbol('assets'),
                 val: xdr.ScVal.scvVec(config.assets.map(asset => buildAssetScVal(asset)))
             }),
+            new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('base_asset'), val: buildAssetScVal(config.baseAsset)}),
+            new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('decimals'), val: xdr.ScVal.scvU32(config.decimals)}),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('period'),
                 val: xdr.ScVal.scvU64(xdr.Uint64.fromString(config.period.toString()))
-            })
+            }),
+            new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('resolution'), val: xdr.ScVal.scvU32(config.resolution)})
         ])
         return await buildTransaction(
             this,

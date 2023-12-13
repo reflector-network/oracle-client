@@ -83,15 +83,16 @@ async function prepare() {
     }
 
     async function deployContract() {
-        const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
+        const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
         return await exexCommand(command)
     }
 
     async function installUpdateContract() {
-        const command = `soroban contract install --wasm ./test/reflector_oracle_2.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}"`
+        const command = `soroban contract install --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
         return await exexCommand(command)
     }
 
+    console.log(`Admin: ${admin.publicKey()}`)
     await createAccount(admin.publicKey())
     contractId = await deployContract()
     updateContractWasmHash = await installUpdateContract()
@@ -102,7 +103,7 @@ async function prepare() {
 
     async function updateAdminToMultiSigAccount() {
         const majorityCount = getMajority(nodesKeypairs.length)
-        let txBuilder = new TransactionBuilder(account, {fee: 100, networkPassphrase: contractConfig.network})
+        let txBuilder = new TransactionBuilder(account, {fee: 1000000, networkPassphrase: contractConfig.network})
         txBuilder = txBuilder
             .setTimeout(30000)
             .addOperation(
@@ -164,7 +165,7 @@ function signTransaction(transaction) {
 
 const txOptions = {
     minAccountSequence: '0',
-    fee: 1000
+    fee: 1000000
 }
 
 beforeAll(async () => {
@@ -175,6 +176,9 @@ test('config', async () => {
     await submitTx(client.config(account, {
         admin: admin.publicKey(),
         assets: contractConfig.assets.slice(0, initAssetLength),
+        baseAsset: contractConfig.baseAsset,
+        decimals: contractConfig.decimals,
+        resolution: contractConfig.resolution,
         period
     }, txOptions), response => {
         expect(response).toBeDefined()
