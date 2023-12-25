@@ -1,7 +1,8 @@
+/*eslint-disable no-inner-declarations */
 /*eslint-disable no-undef */
 const crypto = require('crypto')
 const {exec} = require('child_process')
-const {Keypair, SorobanRpc, TransactionBuilder, Operation} = require('stellar-sdk')
+const {Keypair, SorobanRpc, TransactionBuilder, Operation} = require('@stellar/stellar-sdk')
 const Client = require('../src')
 const AssetType = require('../src/asset-type')
 const contractConfig = require('./example.contract.config.json')
@@ -29,15 +30,7 @@ const ADJUSTED_MAX = MAX_I128 / (10n ** BigInt(contractConfig.decimals)) //divid
 let lastTimestamp = normalize_timestamp(Date.now())
 let period = contractConfig.resolution * 10
 
-let admin
-let account
-let nodesKeypairs
-let contractId
-let updateContractWasmHash
-/**
- * @type {Client}
- */
-let client
+const config = {}
 
 function getMajority(totalSignersCount) {
     return Math.floor(totalSignersCount / 2) + 1
@@ -61,81 +54,102 @@ async function createAccount(publicKey) {
 }
 
 async function prepare() {
-    admin = Keypair.random()
-    nodesKeypairs = Array.from({length: 5}, () => (Keypair.random()))
+    if (!config.admin) {
+        config.admin = Keypair.random()
+        config.nodesKeypairs = Array.from({length: 5}, () => (Keypair.random()))
 
-    async function exexCommand(command) {
-        return await new Promise((resolve, reject) => {
-            exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`exec error: ${error}`)
-                    reject(error)
-                    return
-                }
-                if (stderr) {
-                    console.error(`stderr: ${stderr}`)
-                    reject(new Error(stderr))
-                    return
-                }
-                resolve(stdout.trim())
-            })
-        })
-    }
-
-    async function deployContract() {
-        const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
-        return await exexCommand(command)
-    }
-
-    async function installUpdateContract() {
-        const command = `soroban contract install --wasm ./test/reflector_oracle.wasm --source ${admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
-        return await exexCommand(command)
-    }
-
-    console.log(`Admin: ${admin.publicKey()}`)
-    await createAccount(admin.publicKey())
-    contractId = await deployContract()
-    updateContractWasmHash = await installUpdateContract()
-
-    console.log(`Contract ID: ${contractId}`)
-
-    account = await server.getAccount(admin.publicKey())
-
-    async function updateAdminToMultiSigAccount() {
-        const majorityCount = getMajority(nodesKeypairs.length)
-        let txBuilder = new TransactionBuilder(account, {fee: 1000000, networkPassphrase: contractConfig.network})
-        txBuilder = txBuilder
-            .setTimeout(30000)
-            .addOperation(
-                Operation.setOptions({
-                    masterWeight: 0,
-                    lowThreshold: majorityCount,
-                    medThreshold: majorityCount,
-                    highThreshold: majorityCount
-                })
-            )
-
-        for (const nodeKeypair of nodesKeypairs) {
-            txBuilder = txBuilder.addOperation(
-                Operation.setOptions({
-                    signer: {
-                        ed25519PublicKey: nodeKeypair.publicKey(),
-                        weight: 1
+        async function exexCommand(command) {
+            return await new Promise((resolve, reject) => {
+                exec(command, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`exec error: ${error}`)
+                        reject(error)
+                        return
                     }
+                    if (stderr) {
+                        console.error(`stderr: ${stderr}`)
+                        reject(new Error(stderr))
+                        return
+                    }
+                    resolve(stdout.trim())
                 })
-            )
+            })
         }
 
-        const tx = txBuilder.build()
+        async function deployContract() {
+            const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${config.admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
+            return await exexCommand(command)
+        }
 
-        tx.sign(admin)
+        async function installUpdateContract() {
+            const command = `soroban contract install --wasm ./test/reflector_oracle.wasm --source ${config.admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
+            return await exexCommand(command)
+        }
 
-        await sendTransaction(server, tx)
+        await createAccount(config.admin.publicKey())
+        config.contractId = await deployContract()
+        updateContractWasmHash = await installUpdateContract()
+
+        config.adminAccount = await server.getAccount(config.admin.publicKey())
+
+        async function updateToMultiSigAccount(account, keypair) {
+            const majorityCount = getMajority(config.nodesKeypairs.length)
+            let txBuilder = new TransactionBuilder(account, {fee: 1000000, networkPassphrase: contractConfig.network})
+            txBuilder = txBuilder
+                .setTimeout(30000)
+                .addOperation(
+                    Operation.setOptions({
+                        masterWeight: 0,
+                        lowThreshold: majorityCount,
+                        medThreshold: majorityCount,
+                        highThreshold: majorityCount
+                    })
+                )
+
+            for (const nodeKeypair of config.nodesKeypairs) {
+                txBuilder = txBuilder.addOperation(
+                    Operation.setOptions({
+                        signer: {
+                            ed25519PublicKey: nodeKeypair.publicKey(),
+                            weight: 1
+                        }
+                    })
+                )
+            }
+
+            const tx = txBuilder.build()
+
+            tx.sign(keypair)
+
+            await sendTransaction(server, tx)
+        }
+
+        await updateToMultiSigAccount(config.adminAccount, config.admin)
+
+        config.updatesAdmin = Keypair.random()
+
+        console.log(`Updates config.admin: ${config.updatesAdmin.secret()}`)
+
+        await createAccount(config.updatesAdmin.publicKey())
+
+        config.updatesAdminAccount = await server.getAccount(config.updatesAdmin.publicKey())
+
+        await updateToMultiSigAccount(config.updatesAdminAccount, config.updatesAdmin)
+
+
+        //console all created account secrets and contracts ids
+        console.log({
+            admin: config.admin.secret(),
+            updatesAdmin: config.updatesAdmin.secret(),
+            nodes: config.nodesKeypairs.map(k => k.secret()),
+            contractId: config.contractId
+        })
+    } else {
+        config.adminAccount = await server.getAccount(config.admin.publicKey())
+        config.updatesAdminAccount = await server.getAccount(config.updatesAdmin.publicKey())
     }
 
-    await updateAdminToMultiSigAccount()
-
-    client = new Client(contractConfig.network, contractConfig.horizonUrl, contractId)
+    config.client = new Client(contractConfig.network, contractConfig.horizonUrl, config.contractId)
 }
 
 function generateRandomI128() {
@@ -152,8 +166,8 @@ function generateRandomI128() {
 }
 
 function signTransaction(transaction) {
-    const shuffledSigners = nodesKeypairs.sort(() => 0.5 - Math.random())
-    const selectedSigners = shuffledSigners.slice(0, getMajority(nodesKeypairs.length))
+    const shuffledSigners = config.nodesKeypairs.sort(() => 0.5 - Math.random())
+    const selectedSigners = shuffledSigners.slice(0, getMajority(config.nodesKeypairs.length))
     const txHash = transaction.hash()
     const signatures = []
     for (const signer of selectedSigners) {
@@ -165,7 +179,7 @@ function signTransaction(transaction) {
 
 const txOptions = {
     minAccountSequence: '0',
-    fee: 1000000
+    fee: 10000000
 }
 
 beforeAll(async () => {
@@ -173,8 +187,8 @@ beforeAll(async () => {
 }, 3000000)
 
 test('config', async () => {
-    await submitTx(client.config(account, {
-        admin: admin.publicKey(),
+    await submitTx(config.client.config(config.adminAccount, {
+        admin: config.admin.publicKey(),
         assets: contractConfig.assets.slice(0, initAssetLength),
         baseAsset: contractConfig.baseAsset,
         decimals: contractConfig.decimals,
@@ -186,7 +200,7 @@ test('config', async () => {
 }, 300000)
 
 test('version', async () => {
-    await submitTx(client.version(account, txOptions), response => {
+    await submitTx(config.client.version(config.adminAccount, txOptions), response => {
         const version = Client.parseNumberResult(response.resultMetaXdr)
         expect(version).toBeDefined()
         return `Version: ${version}`
@@ -194,14 +208,14 @@ test('version', async () => {
 }, 300000)
 
 test('bump', async () => {
-    await submitTx(client.bump(account, 500_000, txOptions), response => {
+    await submitTx(config.client.bump(config.adminAccount, 500_000, txOptions), response => {
         expect(response).toBeDefined()
     })
 }, 300000)
 
 test('add_assets', async () => {
-    await submitTx(client.addAssets(account, {
-        admin: admin.publicKey(),
+    await submitTx(config.client.addAssets(config.updatesAdminAccount, {
+        admin: config.admin.publicKey(),
         assets: contractConfig.assets.slice(initAssetLength)
     }, txOptions), response => {
         expect(response).toBeDefined()
@@ -210,14 +224,14 @@ test('add_assets', async () => {
 
 test('set_period', async () => {
     period += contractConfig.resolution
-    await submitTx(client.setPeriod(account, {
-        admin: admin.publicKey(),
+    await submitTx(config.client.setPeriod(config.updatesAdminAccount, {
+        admin: config.admin.publicKey(),
         period
     }, txOptions), response => {
         expect(response).toBeDefined()
     })
 
-    await submitTx(client.period(account, txOptions), response => {
+    await submitTx(config.client.period(config.adminAccount, txOptions), response => {
         const newPeriod = Client.parseNumberResult(response.resultMetaXdr)
         expect(newPeriod).toBe(period)
     })
@@ -228,7 +242,7 @@ test('set_price', async () => {
         const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
 
         const timestamp = lastTimestamp += contractConfig.resolution
-        await submitTx(client.setPrice(account, {admin: admin.publicKey(), prices, timestamp}, txOptions), response => {
+        await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp}, txOptions), response => {
             expect(response).toBeDefined()
         })
     }
@@ -240,15 +254,15 @@ test('set_price (extra price)', async () => {
         const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
 
         const timestamp = lastTimestamp += contractConfig.resolution
-        await submitTx(client.setPrice(account, {admin: admin.publicKey(), prices, timestamp}, txOptions), response => {
+        await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp}, txOptions), response => {
             expect(response).toBeDefined()
         })
     }
 }, 300000)
 
 test('add_asset (extra asset)', async () => {
-    await submitTx(client.addAssets(account, {
-        admin: admin.publicKey(),
+    await submitTx(config.client.addAssets(config.updatesAdminAccount, {
+        admin: config.admin.publicKey(),
         assets: [extraAsset]
     }, txOptions), response => {
         expect(response).toBeDefined()
@@ -258,15 +272,15 @@ test('add_asset (extra asset)', async () => {
 //TODO: add test for get_price for extra asset before adding it (must be null) and after adding it (must be valid price)
 
 test('admin', async () => {
-    await submitTx(client.admin(account, txOptions), response => {
+    await submitTx(config.client.admin(config.adminAccount, txOptions), response => {
         const adminPublicKey = Client.parseAdminResult(response.resultMetaXdr)
-        expect(admin.publicKey()).toBe(adminPublicKey)
+        expect(config.admin.publicKey()).toBe(adminPublicKey)
         return `Admin: ${adminPublicKey}`
     })
 }, 3000000)
 
 test('base', async () => {
-    await submitTx(client.base(account, txOptions), response => {
+    await submitTx(config.client.base(config.adminAccount, txOptions), response => {
         const base = Client.parseBaseResult(response.resultMetaXdr)
         expect(base !== null && base !== undefined).toBe(true)
         return `Base: ${assetToString(base)}`
@@ -275,7 +289,7 @@ test('base', async () => {
 
 
 test('decimals', async () => {
-    await submitTx(client.decimals(account, txOptions), response => {
+    await submitTx(config.client.decimals(config.adminAccount, txOptions), response => {
         const decimals = Client.parseNumberResult(response.resultMetaXdr)
         expect(decimals).toBe(contractConfig.decimals)
         return `Decimals: ${decimals}`
@@ -283,7 +297,7 @@ test('decimals', async () => {
 }, 300000)
 
 test('resolution', async () => {
-    await submitTx(client.resolution(account, txOptions), response => {
+    await submitTx(config.client.resolution(config.adminAccount, txOptions), response => {
         const resolution = Client.parseNumberResult(response.resultMetaXdr)
         expect(resolution).toBe(contractConfig.resolution / 1000) //in seconds
         return `Resolution: ${resolution}`
@@ -291,7 +305,7 @@ test('resolution', async () => {
 }, 300000)
 
 test('period', async () => {
-    await submitTx(client.period(account, txOptions), response => {
+    await submitTx(config.client.period(config.adminAccount, txOptions), response => {
         const periodValue = Client.parseNumberResult(response.resultMetaXdr)
         expect(periodValue).toBe(period)
         return `Period: ${periodValue}`
@@ -299,7 +313,7 @@ test('period', async () => {
 }, 300000)
 
 test('assets', async () => {
-    await submitTx(client.assets(account, txOptions), response => {
+    await submitTx(config.client.assets(config.adminAccount, txOptions), response => {
         const assets = Client.parseAssetsResult(response.resultMetaXdr)
         expect(assets.length).toEqual(contractConfig.assets.length)
         return `Assets: ${assets.map(a => assetToString(a)).join(', ')}`
@@ -307,7 +321,7 @@ test('assets', async () => {
 }, 300000)
 
 test('price', async () => {
-    await submitTx(client.price(account, contractConfig.assets[1], lastTimestamp, txOptions), response => {
+    await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], lastTimestamp, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
         return `Price: ${priceToString(price)}`
@@ -316,7 +330,7 @@ test('price', async () => {
 
 
 test('price (non existing)', async () => {
-    await submitTx(client.price(account, contractConfig.assets[1], 10000000000, txOptions), response => {
+    await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], 10000000000, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
         return `Price: ${priceToString(price)}`
@@ -324,7 +338,7 @@ test('price (non existing)', async () => {
 }, 300000)
 
 test('x_price', async () => {
-    await submitTx(client.xPrice(account, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp, txOptions), response => {
+    await submitTx(config.client.xPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
         return `Price: ${priceToString(price)}`
@@ -332,7 +346,7 @@ test('x_price', async () => {
 }, 300000)
 
 test('lastprice', async () => {
-    await submitTx(client.lastPrice(account, contractConfig.assets[0], txOptions), response => {
+    await submitTx(config.client.lastPrice(config.adminAccount, contractConfig.assets[0], txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
         return `Price: ${priceToString(price)}`
@@ -340,7 +354,7 @@ test('lastprice', async () => {
 }, 300000)
 
 test('x_lt_price', async () => {
-    await submitTx(client.xLastPrice(account, contractConfig.assets[0], contractConfig.assets[1], txOptions), response => {
+    await submitTx(config.client.xLastPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
         return `Price: ${priceToString(price)}`
@@ -348,7 +362,7 @@ test('x_lt_price', async () => {
 }, 300000)
 
 test('prices', async () => {
-    await submitTx(client.prices(account, contractConfig.assets[0], 3, txOptions), response => {
+    await submitTx(config.client.prices(config.adminAccount, contractConfig.assets[0], 3, txOptions), response => {
         const prices = Client.parsePricesResult(response.resultMetaXdr)
         expect(prices.length > 0).toBe(true)
         return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
@@ -356,7 +370,7 @@ test('prices', async () => {
 }, 300000)
 
 test('x_prices', async () => {
-    await submitTx(client.xPrices(account, contractConfig.assets[0], contractConfig.assets[1], 3, txOptions), response => {
+    await submitTx(config.client.xPrices(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 3, txOptions), response => {
         const prices = Client.parsePricesResult(response.resultMetaXdr)
         expect(prices.length > 0).toBe(true)
         return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
@@ -364,7 +378,7 @@ test('x_prices', async () => {
 }, 300000)
 
 test('twap', async () => {
-    await submitTx(client.twap(account, contractConfig.assets[0], 3, txOptions), response => {
+    await submitTx(config.client.twap(config.adminAccount, contractConfig.assets[0], 3, txOptions), response => {
         const twap = Client.parseTwapResult(response.resultMetaXdr)
         expect(twap > 0n).toBe(true)
         return `Twap: ${twap.toString()}`
@@ -372,7 +386,7 @@ test('twap', async () => {
 }, 300000)
 
 test('x_twap', async () => {
-    await submitTx(client.xTwap(account, contractConfig.assets[0], contractConfig.assets[1], 3, txOptions), response => {
+    await submitTx(config.client.xTwap(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 3, txOptions), response => {
         const twap = Client.parseTwapResult(response.resultMetaXdr)
         expect(twap > 0n).toBe(true)
         return `Twap: ${twap.toString()}`
@@ -380,7 +394,7 @@ test('x_twap', async () => {
 }, 300000)
 
 test('lasttimestamp', async () => {
-    await submitTx(client.lastTimestamp(account, txOptions), response => {
+    await submitTx(config.client.lastTimestamp(config.adminAccount, txOptions), response => {
         const timestamp = Client.parseNumberResult(response.resultMetaXdr)
         expect(timestamp).toBeGreaterThan(0)
         return `Timestamp: ${timestamp}`
@@ -388,8 +402,8 @@ test('lasttimestamp', async () => {
 }, 300000)
 
 test('update_contract', async () => {
-    await submitTx(client.updateContract(account, {
-        admin: admin.publicKey(),
+    await submitTx(config.client.updateContract(config.updatesAdminAccount, {
+        admin: config.admin.publicKey(),
         wasmHash: updateContractWasmHash
     }, txOptions), () => { })
 }, 300000)
@@ -397,7 +411,7 @@ test('update_contract', async () => {
 async function submitTx(txPromise, processResponse) {
     const tx = await txPromise
     const signatures = signTransaction(tx)
-    const response = await client.submitTransaction(tx, signatures)
+    const response = await config.client.submitTransaction(tx, signatures)
     const additional = processResponse(response)
 
     console.log(`Transaction ID: ${response.hash}, Status: ${response.status}, ${additional || 'Success'}`)

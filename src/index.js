@@ -8,8 +8,9 @@ const {
     Memo,
     Keypair,
     scValToBigInt,
-    nativeToScVal
-} = require('stellar-sdk')
+    nativeToScVal,
+    Operation
+} = require('@stellar/stellar-sdk')
 const AssetType = require('./asset-type')
 
 /**
@@ -74,7 +75,8 @@ async function buildTransaction(client, source, operation, options) {
         .setTimeout(options.timeout || 0)
         .build()
 
-    return await client.server.prepareTransaction(transaction, client.network)
+    const simulationResponse = await client.server.simulateTransaction(transaction)
+    return SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
 }
 
 function getAccountId(source) {
@@ -189,14 +191,16 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async updateContract(source, updateContractData, options = {fee: 100}) {
+        const invocation = Operation.invokeContractFunction({
+            source: updateContractData.admin,
+            contract: this.contractId,
+            function: 'update_contract',
+            args: [new Address(updateContractData.admin).toScVal(), xdr.ScVal.scvBytes(Buffer.from(updateContractData.wasmHash, 'hex'))]
+        })
         return await buildTransaction(
             this,
             source,
-            this.contract.call(
-                'update_contract',
-                new Address(updateContractData.admin).toScVal(),
-                xdr.ScVal.scvBytes(Buffer.from(updateContractData.wasmHash, 'hex'))
-            ),
+            invocation,
             options
         )
     }
@@ -223,10 +227,16 @@ class OracleClient {
             }),
             new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('resolution'), val: xdr.ScVal.scvU32(config.resolution)})
         ])
+        const invocation = Operation.invokeContractFunction({
+            source: config.admin,
+            contract: this.contractId,
+            function: 'config',
+            args: [new Address(getAccountId(config.admin)).toScVal(), configScVal]
+        })
         return await buildTransaction(
             this,
             source,
-            this.contract.call('config', new Address(getAccountId(source)).toScVal(), configScVal),
+            invocation,
             options
         )
     }
@@ -239,13 +249,15 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async bump(source, ledgersToLive, options = {fee: 100}) {
+        const invocation = Operation.invokeContractFunction({
+            contract: this.contractId,
+            function: 'bump',
+            args: [xdr.ScVal.scvU32(ledgersToLive)]
+        })
         return await buildTransaction(
             this,
             source,
-            this.contract.call(
-                'bump',
-                xdr.ScVal.scvU32(ledgersToLive)
-            ),
+            invocation,
             options
         )
     }
@@ -258,14 +270,16 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async addAssets(source, update, options = {fee: 100}) {
+        const invocation = Operation.invokeContractFunction({
+            source: update.admin,
+            contract: this.contractId,
+            function: 'add_assets',
+            args: [new Address(getAccountId(update.admin)).toScVal(), xdr.ScVal.scvVec(update.assets.map(asset => buildAssetScVal(asset)))]
+        })
         return await buildTransaction(
             this,
             source,
-            this.contract.call(
-                'add_assets',
-                new Address(getAccountId(update.admin)).toScVal(),
-                xdr.ScVal.scvVec(update.assets.map(asset => buildAssetScVal(asset)))
-            ),
+            invocation,
             options
         )
     }
@@ -278,14 +292,16 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async setPeriod(source, update, options = {fee: 100}) {
+        const invocation = Operation.invokeContractFunction({
+            source: update.admin,
+            contract: this.contractId,
+            function: 'set_period',
+            args: [new Address(getAccountId(update.admin)).toScVal(), xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))]
+        })
         return await buildTransaction(
             this,
             source,
-            this.contract.call(
-                'set_period',
-                new Address(getAccountId(update.admin)).toScVal(),
-                xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))
-            ),
+            invocation,
             options
         )
     }
@@ -298,16 +314,20 @@ class OracleClient {
      * @returns {Promise<Transaction>} Prepared transaction
      */
     async setPrice(source, update, options = {fee: 100}) {
-        const scValPrices = xdr.ScVal.scvVec(update.prices.map(u => nativeToScVal(u, {type: 'i128'})))
+        const invocation = Operation.invokeContractFunction({
+            source: update.admin,
+            contract: this.contractId,
+            function: 'set_price',
+            args: [
+                new Address(getAccountId(update.admin)).toScVal(),
+                xdr.ScVal.scvVec(update.prices.map(u => nativeToScVal(u, {type: 'i128'}))),
+                xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
+            ]
+        })
         return await buildTransaction(
             this,
             source,
-            this.contract.call(
-                'set_price',
-                new Address(getAccountId(update.admin)).toScVal(),
-                scValPrices,
-                xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
-            ),
+            invocation,
             options
         )
     }
