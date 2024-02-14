@@ -195,7 +195,7 @@ class OracleClient {
             source: updateContractData.admin,
             contract: this.contractId,
             function: 'update_contract',
-            args: [new Address(updateContractData.admin).toScVal(), xdr.ScVal.scvBytes(Buffer.from(updateContractData.wasmHash, 'hex'))]
+            args: [xdr.ScVal.scvBytes(Buffer.from(updateContractData.wasmHash, 'hex'))]
         })
         return await buildTransaction(
             this,
@@ -231,7 +231,7 @@ class OracleClient {
             source: config.admin,
             contract: this.contractId,
             function: 'config',
-            args: [new Address(getAccountId(config.admin)).toScVal(), configScVal]
+            args: [configScVal]
         })
         return await buildTransaction(
             this,
@@ -274,7 +274,7 @@ class OracleClient {
             source: update.admin,
             contract: this.contractId,
             function: 'add_assets',
-            args: [new Address(getAccountId(update.admin)).toScVal(), xdr.ScVal.scvVec(update.assets.map(asset => buildAssetScVal(asset)))]
+            args: [xdr.ScVal.scvVec(update.assets.map(asset => buildAssetScVal(asset)))]
         })
         return await buildTransaction(
             this,
@@ -296,7 +296,7 @@ class OracleClient {
             source: update.admin,
             contract: this.contractId,
             function: 'set_period',
-            args: [new Address(getAccountId(update.admin)).toScVal(), xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))]
+            args: [xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))]
         })
         return await buildTransaction(
             this,
@@ -319,7 +319,6 @@ class OracleClient {
             contract: this.contractId,
             function: 'set_price',
             args: [
-                new Address(getAccountId(update.admin)).toScVal(),
                 xdr.ScVal.scvVec(update.prices.map(u => nativeToScVal(u, {type: 'i128'}))),
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
             ]
@@ -656,10 +655,10 @@ class OracleClient {
      * @returns {number} - Number value
      */
     static parseNumberResult(result) {
-        const val = getSorobanResultValue(result)
+        const val = getSorobanResultValue(result)?.value()
         if (val === undefined)
             return null
-        return Number(val.value())
+        return Number(val)
     }
 
     /**
@@ -667,11 +666,11 @@ class OracleClient {
      * @returns {Asset[]} - Array of asset objects
      */
     static parseAssetsResult(result) {
-        const val = getSorobanResultValue(result)
+        const val = getSorobanResultValue(result)?.value()
         if (val === undefined)
             return null
         const assets = []
-        for (const assetResult of val.value())
+        for (const assetResult of val)
             assets.push(parseXdrAssetResult(assetResult))
         return assets
     }
@@ -692,11 +691,11 @@ class OracleClient {
      * @returns {Price[]} - Array of price objects
      */
     static parsePricesResult(result) {
-        const val = getSorobanResultValue(result)
+        const val = getSorobanResultValue(result)?.value()
         if (val === undefined)
             return null
         const prices = []
-        for (const priceResult of val.value())
+        for (const priceResult of val)
             prices.push(parseXdrPriceResult(priceResult))
         return prices
     }

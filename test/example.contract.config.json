@@ -24,10 +24,10 @@
     {
       "type": 1,
       "code": "CCRL..."
-    },
-    {
-      "type": 2,
-      "code": "USD"
     }
-  ]
+  ],
+  "baseAsset": {
+    "type": 2,
+    "code": "USD"
+  }
 }

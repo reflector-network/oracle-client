@@ -27,7 +27,13 @@ function normalize_timestamp(timestamp) {
 
 const MAX_I128 = BigInt('170141183460469231731687303715884105727')
 const ADJUSTED_MAX = MAX_I128 / (10n ** BigInt(contractConfig.decimals)) //divide by 10^14
-let lastTimestamp = normalize_timestamp(Date.now())
+let lastTimestamp = null
+let currentPriceTimestamp = null
+
+function initTimestamps() {
+    lastTimestamp = currentPriceTimestamp = normalize_timestamp(Date.now())
+}
+
 let period = contractConfig.resolution * 10
 
 const config = {}
@@ -237,27 +243,97 @@ test('set_period', async () => {
     })
 }, 300000)
 
-test('set_price', async () => {
-    for (let i = 0; i < 3; i++) {
-        const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
-
-        const timestamp = lastTimestamp += contractConfig.resolution
-        await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp}, txOptions), response => {
-            expect(response).toBeDefined()
-        })
-    }
-}, 300000)
-
 test('set_price (extra price)', async () => {
     contractConfig.assets.push(extraAsset)
-    for (let i = 0; i < 3; i++) {
-        const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
+    const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
+    initTimestamps()
+    await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp}, txOptions), response => {
+        expect(response).toBeDefined()
+    })
+    currentPriceTimestamp -= contractConfig.resolution
+}, 300000)
 
-        const timestamp = lastTimestamp += contractConfig.resolution
-        await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp}, txOptions), response => {
-            expect(response).toBeDefined()
-        })
-    }
+test('set_price', async () => {
+    const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
+
+    await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp}, txOptions), response => {
+        expect(response).toBeDefined()
+    })
+    currentPriceTimestamp -= contractConfig.resolution
+}, 300000)
+
+
+test('price', async () => {
+    await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], lastTimestamp, txOptions), response => {
+        const price = Client.parsePriceResult(response.resultMetaXdr)
+        expect(price).toBeDefined()
+        return `Price: ${priceToString(price)}`
+    })
+}, 300000)
+
+
+test('price (non existing)', async () => {
+    await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], 10000000000, txOptions), response => {
+        const price = Client.parsePriceResult(response.resultMetaXdr)
+        expect(price).toBeDefined()
+        return `Price: ${priceToString(price)}`
+    })
+}, 300000)
+
+test('x_price', async () => {
+    await submitTx(config.client.xPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp, txOptions), response => {
+        const price = Client.parsePriceResult(response.resultMetaXdr)
+        expect(price).toBeDefined()
+        return `Price: ${priceToString(price)}`
+    })
+}, 300000)
+
+test('lastprice', async () => {
+    await submitTx(config.client.lastPrice(config.adminAccount, contractConfig.assets[0], txOptions), response => {
+        const price = Client.parsePriceResult(response.resultMetaXdr)
+        expect(price).toBeDefined()
+        return `Price: ${priceToString(price)}`
+    })
+}, 300000)
+
+test('x_lt_price', async () => {
+    await submitTx(config.client.xLastPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], txOptions), response => {
+        const price = Client.parsePriceResult(response.resultMetaXdr)
+        expect(price).toBeDefined()
+        return `Price: ${priceToString(price)}`
+    })
+}, 300000)
+
+test('prices', async () => {
+    await submitTx(config.client.prices(config.adminAccount, contractConfig.assets[0], 2, txOptions), response => {
+        const prices = Client.parsePricesResult(response.resultMetaXdr)
+        expect(prices.length > 0).toBe(true)
+        return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
+    })
+}, 300000)
+
+test('x_prices', async () => {
+    await submitTx(config.client.xPrices(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions), response => {
+        const prices = Client.parsePricesResult(response.resultMetaXdr)
+        expect(prices.length > 0).toBe(true)
+        return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
+    })
+}, 300000)
+
+test('twap', async () => {
+    await submitTx(config.client.twap(config.adminAccount, contractConfig.assets[0], 2, txOptions), response => {
+        const twap = Client.parseTwapResult(response.resultMetaXdr)
+        expect(twap > 0n).toBe(true)
+        return `Twap: ${twap.toString()}`
+    })
+}, 300000)
+
+test('x_twap', async () => {
+    await submitTx(config.client.xTwap(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions), response => {
+        const twap = Client.parseTwapResult(response.resultMetaXdr)
+        expect(twap > 0n).toBe(true)
+        return `Twap: ${twap.toString()}`
+    })
 }, 300000)
 
 test('add_asset (extra asset)', async () => {
@@ -317,79 +393,6 @@ test('assets', async () => {
         const assets = Client.parseAssetsResult(response.resultMetaXdr)
         expect(assets.length).toEqual(contractConfig.assets.length)
         return `Assets: ${assets.map(a => assetToString(a)).join(', ')}`
-    })
-}, 300000)
-
-test('price', async () => {
-    await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], lastTimestamp, txOptions), response => {
-        const price = Client.parsePriceResult(response.resultMetaXdr)
-        expect(price).toBeDefined()
-        return `Price: ${priceToString(price)}`
-    })
-}, 300000)
-
-
-test('price (non existing)', async () => {
-    await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], 10000000000, txOptions), response => {
-        const price = Client.parsePriceResult(response.resultMetaXdr)
-        expect(price).toBeDefined()
-        return `Price: ${priceToString(price)}`
-    })
-}, 300000)
-
-test('x_price', async () => {
-    await submitTx(config.client.xPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp, txOptions), response => {
-        const price = Client.parsePriceResult(response.resultMetaXdr)
-        expect(price).toBeDefined()
-        return `Price: ${priceToString(price)}`
-    })
-}, 300000)
-
-test('lastprice', async () => {
-    await submitTx(config.client.lastPrice(config.adminAccount, contractConfig.assets[0], txOptions), response => {
-        const price = Client.parsePriceResult(response.resultMetaXdr)
-        expect(price).toBeDefined()
-        return `Price: ${priceToString(price)}`
-    })
-}, 300000)
-
-test('x_lt_price', async () => {
-    await submitTx(config.client.xLastPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], txOptions), response => {
-        const price = Client.parsePriceResult(response.resultMetaXdr)
-        expect(price).toBeDefined()
-        return `Price: ${priceToString(price)}`
-    })
-}, 300000)
-
-test('prices', async () => {
-    await submitTx(config.client.prices(config.adminAccount, contractConfig.assets[0], 3, txOptions), response => {
-        const prices = Client.parsePricesResult(response.resultMetaXdr)
-        expect(prices.length > 0).toBe(true)
-        return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
-    })
-}, 300000)
-
-test('x_prices', async () => {
-    await submitTx(config.client.xPrices(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 3, txOptions), response => {
-        const prices = Client.parsePricesResult(response.resultMetaXdr)
-        expect(prices.length > 0).toBe(true)
-        return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
-    })
-}, 300000)
-
-test('twap', async () => {
-    await submitTx(config.client.twap(config.adminAccount, contractConfig.assets[0], 3, txOptions), response => {
-        const twap = Client.parseTwapResult(response.resultMetaXdr)
-        expect(twap > 0n).toBe(true)
-        return `Twap: ${twap.toString()}`
-    })
-}, 300000)
-
-test('x_twap', async () => {
-    await submitTx(config.client.xTwap(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 3, txOptions), response => {
-        const twap = Client.parseTwapResult(response.resultMetaXdr)
-        expect(twap > 0n).toBe(true)
-        return `Twap: ${twap.toString()}`
     })
 }, 300000)
 
