@@ -15,7 +15,7 @@ contractConfig.baseAsset = tryEncodeAssetContractId(contractConfig.baseAsset, co
 
 const initAssetLength = 1
 
-const server = new SorobanRpc.Server(contractConfig.horizonUrl)
+const server = new SorobanRpc.Server(contractConfig.sorobanRpcUrl)
 
 const extraAsset = {type: AssetType.Other, code: 'JPY'}
 
@@ -122,12 +122,12 @@ async function prepare() {
         }
 
         async function deployContract() {
-            const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${config.admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
+            const command = `soroban contract deploy --wasm ./test/reflector_oracle.wasm --source ${config.admin.secret()} --rpc-url ${contractConfig.sorobanRpcUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
             return await exexCommand(command)
         }
 
         async function installUpdateContract() {
-            const command = `soroban contract install --wasm ./test/reflector_oracle.wasm --source ${config.admin.secret()} --rpc-url ${contractConfig.horizonUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
+            const command = `soroban contract install --wasm ./test/reflector_oracle.wasm --source ${config.admin.secret()} --rpc-url ${contractConfig.sorobanRpcUrl} --network-passphrase "${contractConfig.network}" --fee 1000000000`
             return await exexCommand(command)
         }
 
@@ -194,7 +194,7 @@ async function prepare() {
         config.updatesAdminAccount = await server.getAccount(config.updatesAdmin.publicKey())
     }
 
-    config.client = new Client(contractConfig.network, contractConfig.horizonUrl, config.contractId)
+    config.client = new Client(contractConfig.network, contractConfig.sorobanRpcUrl, config.contractId)
 }
 
 function generateRandomI128() {

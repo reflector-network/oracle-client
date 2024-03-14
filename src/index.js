@@ -165,22 +165,22 @@ class OracleClient {
 
     /**
      * @type {string}
-     * @description Horizon URL
+     * @description Soroban RPC server URL
      */
-    horizonUrl
+    sorobanRpcUrl
 
     /**
      * @type {SorobanRpc.Server}
-     * @description Horizon server instance
+     * @description Soroban RPC server instance
      */
     server
 
-    constructor(network, horizonUrl, contractId) {
+    constructor(network, sorobanRpcUrl, contractId) {
         this.contractId = contractId
         this.contract = new Contract(contractId)
         this.network = network
-        this.horizonUrl = horizonUrl
-        this.server = new SorobanRpc.Server(horizonUrl, {allowHttp: true})
+        this.sorobanRpcUrl = sorobanRpcUrl
+        this.server = new SorobanRpc.Server(sorobanRpcUrl, {allowHttp: true})
     }
 
     /**
