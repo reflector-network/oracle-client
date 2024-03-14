@@ -2,13 +2,16 @@
 /*eslint-disable no-undef */
 const crypto = require('crypto')
 const {exec} = require('child_process')
-const {Keypair, SorobanRpc, TransactionBuilder, Operation} = require('@stellar/stellar-sdk')
+const {Keypair, SorobanRpc, TransactionBuilder, Operation, xdr, StrKey, Asset: StellarAsset, hash} = require('@stellar/stellar-sdk')
 const Client = require('../src')
 const AssetType = require('../src/asset-type')
 const contractConfig = require('./example.contract.config.json')
 
 if (contractConfig.assets.length < 2)
     throw new Error('Need at least 2 assets to run tests')
+
+contractConfig.assets = contractConfig.assets.map(a => tryEncodeAssetContractId(a, contractConfig.network))
+contractConfig.baseAsset = tryEncodeAssetContractId(contractConfig.baseAsset, contractConfig.network)
 
 const initAssetLength = 1
 
@@ -20,6 +23,42 @@ const assetToString = (asset) => !asset ? 'null' : `${asset.type}:${asset.code}`
 
 const priceToString = (price) => !price ? 'null' : `{price: ${price.price.toString()}, timestamp: ${price.timestamp.toString()}}`
 
+function tryEncodeAssetContractId(asset, networkPassphrase) {
+    let stellarAsset = null
+    switch (asset.type) {
+        case 1: {
+            const splittedCode = asset.code.split(':')
+            if (splittedCode.length === 2) {
+                const [assetCode, issuer] = splittedCode
+                if (!assetCode || !issuer)
+                    throw new Error('Asset code and issuer must be defined')
+                if (!StrKey.isValidEd25519PublicKey(issuer))
+                    new Error('Asset issuer must be a valid ed25519 public key')
+                stellarAsset = new StellarAsset(assetCode, issuer)
+            } else if (code === 'XLM') {
+                stellarAsset = StellarAsset.native()
+            } else {
+                this.isContractId = isValidContractId(code)
+                if (!this.isContractId)
+                    new Error(`Asset code ${code} is invalid`)
+                return asset
+            }
+        }
+            break
+        case 2:
+            if (asset.code.length > 32)
+                new Error('Asset code must be 32 characters or less')
+            return asset
+        default:
+            throw new Error(`Asset type ${asset.type} is not supported`)
+    }
+    const assetContractId = new xdr.HashIdPreimageContractId({
+        networkId: hash(Buffer.from(contractConfig.network)),
+        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(stellarAsset.toXDRObject())
+    })
+    const preimage = xdr.HashIdPreimage.envelopeTypeContractId(assetContractId)
+    return {type: 1, code: StrKey.encodeContract(hash(preimage.toXDR()))}
+}
 
 function normalize_timestamp(timestamp) {
     return Math.floor(timestamp / contractConfig.resolution) * contractConfig.resolution
@@ -196,7 +235,7 @@ test('config', async () => {
     await submitTx(config.client.config(config.adminAccount, {
         admin: config.admin.publicKey(),
         assets: contractConfig.assets.slice(0, initAssetLength),
-        baseAsset: contractConfig.baseAsset,
+        baseAsset: tryEncodeAssetContractId(contractConfig.baseAsset, contractConfig.network),
         decimals: contractConfig.decimals,
         resolution: contractConfig.resolution,
         period

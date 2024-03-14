@@ -7,11 +7,11 @@
   "assets": [
     {
       "type": 1,
-      "code": "CCS4..."
+      "code": "EUR:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
     },
     {
       "type": 1,
-      "code": "CCGP..."
+      "code": "GBP:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
     },
     {
       "type": 2,
@@ -19,11 +19,11 @@
     },
     {
       "type": 1,
-      "code": "CD47..."
+      "code": "CAD:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
     },
     {
       "type": 1,
-      "code": "CCRL..."
+      "code": "JPY:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
     }
   ],
   "baseAsset": {
