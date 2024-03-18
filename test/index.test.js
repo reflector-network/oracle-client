@@ -60,8 +60,15 @@ function tryEncodeAssetContractId(asset, networkPassphrase) {
     return {type: 1, code: StrKey.encodeContract(hash(preimage.toXDR()))}
 }
 
-function normalize_timestamp(timestamp) {
-    return Math.floor(timestamp / contractConfig.resolution) * contractConfig.resolution
+function normalize_timestamp(timestamp, timeframe) {
+    timeframe = timeframe || contractConfig.resolution
+    return Math.floor(timestamp / timeframe) * timeframe
+}
+
+function getNormalizedMaxDate(timeout, timeframe) {
+    const maxDate = new Date(normalize_timestamp(Date.now(), timeframe) + timeout)
+    console.log(`Max date: ${maxDate.toISOString()}, Current date: ${new Date().toISOString()}, Diff: ${maxDate - new Date()}, Timeout: ${timeout}, Timeframe: ${timeframe}`)
+    return maxDate
 }
 
 const MAX_I128 = BigInt('170141183460469231731687303715884105727')
@@ -223,8 +230,11 @@ function signTransaction(transaction) {
 }
 
 const txOptions = {
-    minAccountSequence: '0',
-    fee: 10000000
+    fee: 10000000,
+    timebounds: {
+        minTime: 0,
+        maxTime: 0
+    }
 }
 
 beforeAll(async () => {
@@ -232,6 +242,8 @@ beforeAll(async () => {
 }, 3000000)
 
 test('config', async () => {
+    //normalize to 1 minute and add 60 seconds
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(config.client.config(config.adminAccount, {
         admin: config.admin.publicKey(),
         assets: contractConfig.assets.slice(0, initAssetLength),
@@ -245,6 +257,7 @@ test('config', async () => {
 }, 300000)
 
 test('version', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.version(config.adminAccount, txOptions), response => {
         const version = Client.parseNumberResult(response.resultMetaXdr)
         expect(version).toBeDefined()
@@ -253,12 +266,14 @@ test('version', async () => {
 }, 300000)
 
 test('bump', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(config.client.bump(config.adminAccount, 500_000, txOptions), response => {
         expect(response).toBeDefined()
     })
 }, 300000)
 
 test('add_assets', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(config.client.addAssets(config.updatesAdminAccount, {
         admin: config.admin.publicKey(),
         assets: contractConfig.assets.slice(initAssetLength)
@@ -268,6 +283,7 @@ test('add_assets', async () => {
 }, 300000)
 
 test('set_period', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     period += contractConfig.resolution
     await submitTx(config.client.setPeriod(config.updatesAdminAccount, {
         admin: config.admin.publicKey(),
@@ -286,6 +302,8 @@ test('set_price (extra price)', async () => {
     contractConfig.assets.push(extraAsset)
     const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
     initTimestamps()
+    //30 seconds timeout + 15 seconds for DB delay
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp}, txOptions), response => {
         expect(response).toBeDefined()
     })
@@ -295,6 +313,7 @@ test('set_price (extra price)', async () => {
 test('set_price', async () => {
     const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
 
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(config.client.setPrice(config.adminAccount, {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp}, txOptions), response => {
         expect(response).toBeDefined()
     })
@@ -303,6 +322,7 @@ test('set_price', async () => {
 
 
 test('price', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], lastTimestamp, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
@@ -312,6 +332,7 @@ test('price', async () => {
 
 
 test('price (non existing)', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.price(config.adminAccount, contractConfig.assets[1], 10000000000, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
@@ -320,6 +341,7 @@ test('price (non existing)', async () => {
 }, 300000)
 
 test('x_price', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.xPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp, txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
@@ -328,6 +350,7 @@ test('x_price', async () => {
 }, 300000)
 
 test('lastprice', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.lastPrice(config.adminAccount, contractConfig.assets[0], txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
@@ -336,6 +359,7 @@ test('lastprice', async () => {
 }, 300000)
 
 test('x_lt_price', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.xLastPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], txOptions), response => {
         const price = Client.parsePriceResult(response.resultMetaXdr)
         expect(price).toBeDefined()
@@ -344,6 +368,7 @@ test('x_lt_price', async () => {
 }, 300000)
 
 test('prices', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.prices(config.adminAccount, contractConfig.assets[0], 2, txOptions), response => {
         const prices = Client.parsePricesResult(response.resultMetaXdr)
         expect(prices.length > 0).toBe(true)
@@ -352,6 +377,7 @@ test('prices', async () => {
 }, 300000)
 
 test('x_prices', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.xPrices(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions), response => {
         const prices = Client.parsePricesResult(response.resultMetaXdr)
         expect(prices.length > 0).toBe(true)
@@ -360,6 +386,7 @@ test('x_prices', async () => {
 }, 300000)
 
 test('twap', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.twap(config.adminAccount, contractConfig.assets[0], 2, txOptions), response => {
         const twap = Client.parseTwapResult(response.resultMetaXdr)
         expect(twap > 0n).toBe(true)
@@ -368,6 +395,7 @@ test('twap', async () => {
 }, 300000)
 
 test('x_twap', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.xTwap(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions), response => {
         const twap = Client.parseTwapResult(response.resultMetaXdr)
         expect(twap > 0n).toBe(true)
@@ -376,6 +404,7 @@ test('x_twap', async () => {
 }, 300000)
 
 test('add_asset (extra asset)', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.addAssets(config.updatesAdminAccount, {
         admin: config.admin.publicKey(),
         assets: [extraAsset]
@@ -387,6 +416,7 @@ test('add_asset (extra asset)', async () => {
 //TODO: add test for get_price for extra asset before adding it (must be null) and after adding it (must be valid price)
 
 test('admin', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.admin(config.adminAccount, txOptions), response => {
         const adminPublicKey = Client.parseAdminResult(response.resultMetaXdr)
         expect(config.admin.publicKey()).toBe(adminPublicKey)
@@ -395,6 +425,7 @@ test('admin', async () => {
 }, 3000000)
 
 test('base', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.base(config.adminAccount, txOptions), response => {
         const base = Client.parseBaseResult(response.resultMetaXdr)
         expect(base !== null && base !== undefined).toBe(true)
@@ -404,6 +435,7 @@ test('base', async () => {
 
 
 test('decimals', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.decimals(config.adminAccount, txOptions), response => {
         const decimals = Client.parseNumberResult(response.resultMetaXdr)
         expect(decimals).toBe(contractConfig.decimals)
@@ -412,6 +444,7 @@ test('decimals', async () => {
 }, 300000)
 
 test('resolution', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.resolution(config.adminAccount, txOptions), response => {
         const resolution = Client.parseNumberResult(response.resultMetaXdr)
         expect(resolution).toBe(contractConfig.resolution / 1000) //in seconds
@@ -420,6 +453,7 @@ test('resolution', async () => {
 }, 300000)
 
 test('period', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.period(config.adminAccount, txOptions), response => {
         const periodValue = Client.parseNumberResult(response.resultMetaXdr)
         expect(periodValue).toBe(period)
@@ -428,6 +462,7 @@ test('period', async () => {
 }, 300000)
 
 test('assets', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.assets(config.adminAccount, txOptions), response => {
         const assets = Client.parseAssetsResult(response.resultMetaXdr)
         expect(assets.length).toEqual(contractConfig.assets.length)
@@ -436,6 +471,7 @@ test('assets', async () => {
 }, 300000)
 
 test('lasttimestamp', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.lastTimestamp(config.adminAccount, txOptions), response => {
         const timestamp = Client.parseNumberResult(response.resultMetaXdr)
         expect(timestamp).toBeGreaterThan(0)
@@ -444,6 +480,7 @@ test('lasttimestamp', async () => {
 }, 300000)
 
 test('update_contract', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.updateContract(config.updatesAdminAccount, {
         admin: config.admin.publicKey(),
         wasmHash: updateContractWasmHash
@@ -451,10 +488,15 @@ test('update_contract', async () => {
 }, 300000)
 
 async function submitTx(txPromise, processResponse) {
-    const tx = await txPromise
-    const signatures = signTransaction(tx)
-    const response = await config.client.submitTransaction(tx, signatures)
-    const additional = processResponse(response)
+    try {
+        const tx = await txPromise
+        const signatures = signTransaction(tx)
+        const response = await config.client.submitTransaction(tx, signatures)
+        const additional = processResponse(response)
 
-    console.log(`Transaction ID: ${response.hash}, Status: ${response.status}, ${additional || 'Success'}`)
+        console.log(`Transaction ID: ${response.hash}, Status: ${response.status}, ${additional || 'Success'}`)
+    } catch (e) {
+        console.error(e)
+        throw e
+    }
 }

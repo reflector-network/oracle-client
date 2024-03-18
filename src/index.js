@@ -42,11 +42,9 @@ const AssetType = require('./asset-type')
 /**
  * @typedef {Object} TxOptions
  * @property {number} fee - Transaction fee in stroops
- * @property {number} timeout - Transaction timeout in seconds. Set to 0 to avoid different transactions for multisig accounts. Default is 0.
  * @property {string} memo - Transaction memo
  * @property {{min: number | Data, max: number | Date}} timebounds - Transaction timebounds
  * @property {string[]} signers - Transaction signers
- * @property {string} minAccountSequence - Minimum account sequence
  */
 
 /**
@@ -61,29 +59,27 @@ const AssetType = require('./asset-type')
  * @returns {Promise<Transaction>}
  */
 async function buildTransaction(client, source, operation, options) {
-    let sourceAccount = source
 
+    if (!options)
+        throw new Error('options are required')
+
+    let sourceAccount = source
     if (typeof source !== 'object')
         sourceAccount = await client.server.getAccount(source)
 
     const txBuilderOptions = structuredClone(options)
     txBuilderOptions.memo = options.memo ? Memo.text(options.memo) : null
     txBuilderOptions.networkPassphrase = client.network
+    txBuilderOptions.timebounds = options.timebounds
 
     const transaction = new TransactionBuilder(sourceAccount, txBuilderOptions)
         .addOperation(operation)
-        .setTimeout(options.timeout || 0)
         .build()
 
     const simulationResponse = await client.server.simulateTransaction(transaction)
-    return SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
-}
-
-function getAccountId(source) {
-    if (typeof source === 'object') {
-        return source.accountId()
-    }
-    return source
+    const tx = SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
+    console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${simulationResponse.cost.cpuInsns}, memBytes: ${simulationResponse.cost.memBytes}}, minResourceFee: ${simulationResponse.minResourceFee}`)
+    return tx
 }
 
 /**
@@ -190,7 +186,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async updateContract(source, updateContractData, options = {fee: 100}) {
+    async updateContract(source, updateContractData, options) {
         const invocation = Operation.invokeContractFunction({
             source: updateContractData.admin,
             contract: this.contractId,
@@ -212,7 +208,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async config(source, config, options = {fee: 100}) {
+    async config(source, config, options) {
         const configScVal = xdr.ScVal.scvMap([
             new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('admin'), val: new Address(config.admin).toScVal()}),
             new xdr.ScMapEntry({
@@ -248,7 +244,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async bump(source, ledgersToLive, options = {fee: 100}) {
+    async bump(source, ledgersToLive, options) {
         const invocation = Operation.invokeContractFunction({
             contract: this.contractId,
             function: 'bump',
@@ -269,7 +265,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async addAssets(source, update, options = {fee: 100}) {
+    async addAssets(source, update, options) {
         const invocation = Operation.invokeContractFunction({
             source: update.admin,
             contract: this.contractId,
@@ -291,7 +287,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async setPeriod(source, update, options = {fee: 100}) {
+    async setPeriod(source, update, options) {
         const invocation = Operation.invokeContractFunction({
             source: update.admin,
             contract: this.contractId,
@@ -313,7 +309,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async setPrice(source, update, options = {fee: 100}) {
+    async setPrice(source, update, options) {
         const invocation = Operation.invokeContractFunction({
             source: update.admin,
             contract: this.contractId,
@@ -338,7 +334,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async version(source, options = {fee: 100}) {
+    async version(source, options) {
         return await buildTransaction(this, source, this.contract.call('version'), options)
     }
 
@@ -348,7 +344,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async admin(source, options = {fee: 100}) {
+    async admin(source, options) {
         return await buildTransaction(this, source, this.contract.call('admin'), options)
     }
 
@@ -358,7 +354,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async base(source, options = {fee: 100}) {
+    async base(source, options) {
         return await buildTransaction(this, source, this.contract.call('base'), options)
     }
 
@@ -368,7 +364,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async decimals(source, options = {fee: 100}) {
+    async decimals(source, options) {
         return await buildTransaction(this, source, this.contract.call('decimals'), options)
     }
 
@@ -378,7 +374,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async resolution(source, options = {fee: 100}) {
+    async resolution(source, options) {
         return await buildTransaction(this, source, this.contract.call('resolution'), options)
     }
 
@@ -388,7 +384,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async period(source, options = {fee: 100}) {
+    async period(source, options) {
         return await buildTransaction(this, source, this.contract.call('period'), options)
     }
 
@@ -398,7 +394,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async assets(source, options = {fee: 100}) {
+    async assets(source, options) {
         return await buildTransaction(this, source, this.contract.call('assets'), options)
     }
 
@@ -408,7 +404,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async lastTimestamp(source, options = {fee: 100}) {
+    async lastTimestamp(source, options) {
         return await buildTransaction(this, source, this.contract.call('last_timestamp'), options)
     }
 
@@ -420,7 +416,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async price(source, asset, timestamp, options = {fee: 100}) {
+    async price(source, asset, timestamp, options) {
         return await buildTransaction(
             this,
             source,
@@ -442,7 +438,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async xPrice(source, baseAsset, quoteAsset, timestamp, options = {fee: 100}) {
+    async xPrice(source, baseAsset, quoteAsset, timestamp, options) {
         return await buildTransaction(
             this,
             source,
@@ -463,7 +459,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async lastPrice(source, asset, options = {fee: 100}) {
+    async lastPrice(source, asset, options) {
         return await buildTransaction(
             this,
             source,
@@ -480,7 +476,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async xLastPrice(source, baseAsset, quoteAsset, options = {fee: 100}) {
+    async xLastPrice(source, baseAsset, quoteAsset, options) {
         return await buildTransaction(
             this,
             source,
@@ -501,7 +497,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async prices(source, asset, records, options = {fee: 100}) {
+    async prices(source, asset, records, options) {
         return await buildTransaction(
             this,
             source,
@@ -523,7 +519,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async xPrices(source, baseAsset, quoteAsset, records, options = {fee: 100}) {
+    async xPrices(source, baseAsset, quoteAsset, records, options) {
         return await buildTransaction(
             this,
             source,
@@ -545,7 +541,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async twap(source, asset, records, options = {fee: 100}) {
+    async twap(source, asset, records, options) {
         return await buildTransaction(
             this,
             source,
@@ -567,7 +563,7 @@ class OracleClient {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async xTwap(source, baseAsset, quoteAsset, records, options = {fee: 100}) {
+    async xTwap(source, baseAsset, quoteAsset, records, options) {
         return await buildTransaction(
             this,
             source,
@@ -595,7 +591,7 @@ class OracleClient {
         if (submitResult.status !== 'PENDING') {
             const error = new Error(`Transaction submit failed: ${submitResult.status}`)
             error.status = submitResult.status
-            error.errorResultXdr = submitResult.errorResultXdr
+            error.errorResultXdr = submitResult.errorResult.toXDR('base64')
             error.hash = submitResult.hash
             throw error
         }
