@@ -43,7 +43,7 @@ const AssetType = require('./asset-type')
  * @typedef {Object} TxOptions
  * @property {number} fee - Transaction fee in stroops
  * @property {string} memo - Transaction memo
- * @property {{min: number | Data, max: number | Date}} timebounds - Transaction timebounds
+ * @property {{minTime: number | Data, maxTime: number | Date}} timebounds - Transaction timebounds. Date must be rounded to seconds
  * @property {string[]} signers - Transaction signers
  */
 
