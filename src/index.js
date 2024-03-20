@@ -53,7 +53,7 @@ const AssetType = require('./asset-type')
 
 /**
  * @param {OracleClient} client - Oracle client instance
- * @param {string|Account} source - Valid Stellar account ID, or Account object
+ * @param {Account} source - Account object
  * @param {xdr.Operation} operation - Stellar operation
  * @param {TxOptions} options - Transaction options
  * @returns {Promise<Transaction>}
@@ -63,23 +63,40 @@ async function buildTransaction(client, source, operation, options) {
     if (!options)
         throw new Error('options are required')
 
-    let sourceAccount = source
-    if (typeof source !== 'object')
-        sourceAccount = await client.server.getAccount(source)
-
     const txBuilderOptions = structuredClone(options)
     txBuilderOptions.memo = options.memo ? Memo.text(options.memo) : null
     txBuilderOptions.networkPassphrase = client.network
     txBuilderOptions.timebounds = options.timebounds
 
-    const transaction = new TransactionBuilder(sourceAccount, txBuilderOptions)
+    const transaction = new TransactionBuilder(source, txBuilderOptions)
         .addOperation(operation)
         .build()
 
-    const simulationResponse = await client.server.simulateTransaction(transaction)
+    const request = async (server) => await server.simulateTransaction(transaction)
+
+    const simulationResponse = await makeServerRequest(client.sorobanRpcUrl, request)
+
     const tx = SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
     console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${simulationResponse.cost.cpuInsns}, memBytes: ${simulationResponse.cost.memBytes}}, minResourceFee: ${simulationResponse.minResourceFee}`)
     return tx
+}
+
+async function makeServerRequest(rpcUrls, requestFn) {
+    const errors = []
+    for (const rpcUrl of rpcUrls) {
+        try {
+            const server = new SorobanRpc.Server(rpcUrl, {allowHttp: true})
+            return await requestFn(server)
+        } catch (e) {
+            //if soroban rpc url failed, try next one
+            console.debug(`Failed to build update. Soroban RPC url: ${rpcUrl}, error: ${e.message}`)
+            errors.push(e)
+        }
+    }
+    for (const e of errors) {
+        console.error(e)
+    }
+    throw new Error('Failed to make request.')
 }
 
 /**
@@ -160,28 +177,21 @@ class OracleClient {
     network
 
     /**
-     * @type {string}
-     * @description Soroban RPC server URL
+     * @type {string[]}
+     * @description Soroban RPC server URLs
      */
     sorobanRpcUrl
-
-    /**
-     * @type {SorobanRpc.Server}
-     * @description Soroban RPC server instance
-     */
-    server
 
     constructor(network, sorobanRpcUrl, contractId) {
         this.contractId = contractId
         this.contract = new Contract(contractId)
         this.network = network
         this.sorobanRpcUrl = sorobanRpcUrl
-        this.server = new SorobanRpc.Server(sorobanRpcUrl, {allowHttp: true})
     }
 
     /**
      * Builds a transaction for updating the contract
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {{admin: string, wasmHash: string}} updateContractData - Wasm hash
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -203,7 +213,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to configure the oracle contract
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Config} config - Configuration object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -239,7 +249,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to bump contract instance storage
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {number} ledgersToLive - Number of ledgers to live
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -260,7 +270,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to register assets
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {{admin: string, assets: Asset[]}} update - Array of assets
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -282,7 +292,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to update period
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {{admin: string, period: number}} update - Retention period in milliseconds
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -304,7 +314,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to set prices
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {{admin: string, prices: BigInt[], timestamp: number}} update - Array of prices
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -330,7 +340,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get contract major version
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -340,7 +350,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get admin
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -350,7 +360,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get base asset
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -360,7 +370,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get decimals
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -370,7 +380,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get resolution
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -380,7 +390,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get retention period
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -390,7 +400,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get supported assets
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -400,7 +410,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get last timestamp
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -410,7 +420,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get asset price at timestamp
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} asset - Asset to get price for
      * @param {number} timestamp - Timestamp in milliseconds
      * @param {TxOptions} options - Transaction options
@@ -431,7 +441,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get cross asset price at timestamp
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} baseAsset - Base asset
      * @param {Asset} quoteAsset - Quote asset
      * @param {number} timestamp - Timestamp in milliseconds
@@ -454,7 +464,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get last asset price
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} asset - Asset to get price for
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
@@ -470,7 +480,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get last cross asset price
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} baseAsset - Base asset
      * @param {Asset} quoteAsset - Quote asset
      * @param {TxOptions} options - Transaction options
@@ -491,7 +501,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get last asset price records
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} asset - Asset to get prices for
      * @param {number} records - Number of records to return
      * @param {TxOptions} options - Transaction options
@@ -512,7 +522,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get last cross asset price records
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} baseAsset - Base asset
      * @param {Asset} quoteAsset - Quote asset
      * @param {number} records - Number of records to return
@@ -535,7 +545,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get asset price records in a period
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} asset - Asset to get prices for
      * @param {number} records - Number of records to return
      * @param {TxOptions} options - Transaction options
@@ -556,7 +566,7 @@ class OracleClient {
 
     /**
      * Builds a transaction to get last cross asset price in a period
-     * @param {string|Account} source - Valid Stellar account ID, or Account object
+     * @param {Account} source - Account object
      * @param {Asset} baseAsset - Base asset
      * @param {Asset} quoteAsset - Quote asset
      * @param {number} records - Number of records to return
@@ -587,7 +597,8 @@ class OracleClient {
         const tx = new Transaction(txXdr, this.network) //Create a new transaction object from the XDR
         signatures.forEach(signature => tx.addDecoratedSignature(signature))
 
-        const submitResult = await this.server.sendTransaction(tx)
+        const requestFn = async (server) => await server.sendTransaction(tx)
+        const submitResult = await makeServerRequest(this.sorobanRpcUrl, requestFn)
         if (submitResult.status !== 'PENDING') {
             const error = new Error(`Transaction submit failed: ${submitResult.status}`)
             error.status = submitResult.status
@@ -620,7 +631,8 @@ class OracleClient {
      * @returns {Promise<TransactionResponse>} - Transaction response
      */
     async getTransaction(hash) {
-        return await this.server.getTransaction(hash)
+        const requestFn = async (server) => await server.getTransaction(hash)
+        return await makeServerRequest(this.sorobanRpcUrl, requestFn)
     }
 
     /**

@@ -23,7 +23,7 @@ const assetToString = (asset) => !asset ? 'null' : `${asset.type}:${asset.code}`
 
 const priceToString = (price) => !price ? 'null' : `{price: ${price.price.toString()}, timestamp: ${price.timestamp.toString()}}`
 
-function tryEncodeAssetContractId(asset, networkPassphrase) {
+function tryEncodeAssetContractId(asset) {
     let stellarAsset = null
     switch (asset.type) {
         case 1: {
@@ -201,7 +201,7 @@ async function prepare() {
         config.updatesAdminAccount = await server.getAccount(config.updatesAdmin.publicKey())
     }
 
-    config.client = new Client(contractConfig.network, contractConfig.sorobanRpcUrl, config.contractId)
+    config.client = new Client(contractConfig.network, ['http://bad.rpc', contractConfig.sorobanRpcUrl], config.contractId)
 }
 
 function generateRandomI128() {
