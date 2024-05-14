@@ -144,7 +144,7 @@ function parseXdrAssetResult(xdrAssetResult) {
 
 /**
  * @param {any} xdrPriceResult - XDR price result
- * @returns {{price: BigInt, timestamp: BigInt}}
+ * @returns {Price | null}
  */
 function parseXdrPriceResult(xdrPriceResult) {
     const xdrPrice = xdrPriceResult.value()
@@ -238,27 +238,6 @@ class OracleClient {
             contract: this.contractId,
             function: 'config',
             args: [configScVal]
-        })
-        return await buildTransaction(
-            this,
-            source,
-            invocation,
-            options
-        )
-    }
-
-    /**
-     * Builds a transaction to bump contract instance storage
-     * @param {Account} source - Account object
-     * @param {number} ledgersToLive - Number of ledgers to live
-     * @param {TxOptions} options - Transaction options
-     * @returns {Promise<Transaction>} Prepared transaction
-     */
-    async bump(source, ledgersToLive, options) {
-        const invocation = Operation.invokeContractFunction({
-            contract: this.contractId,
-            function: 'bump',
-            args: [xdr.ScVal.scvU32(ledgersToLive)]
         })
         return await buildTransaction(
             this,

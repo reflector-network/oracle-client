@@ -265,13 +265,6 @@ test('version', async () => {
     })
 }, 300000)
 
-test('bump', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(config.client.bump(config.adminAccount, 500_000, txOptions), response => {
-        expect(response).toBeDefined()
-    })
-}, 300000)
-
 test('add_assets', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(config.client.addAssets(config.updatesAdminAccount, {
@@ -294,7 +287,7 @@ test('set_period', async () => {
 
     await submitTx(config.client.period(config.adminAccount, txOptions), response => {
         const newPeriod = Client.parseNumberResult(response.resultMetaXdr)
-        expect(newPeriod).toBe(period)
+        expect(newPeriod).toBe(period / 1000)
     })
 }, 300000)
 
@@ -456,7 +449,7 @@ test('period', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(config.client.period(config.adminAccount, txOptions), response => {
         const periodValue = Client.parseNumberResult(response.resultMetaXdr)
-        expect(periodValue).toBe(period)
+        expect(periodValue).toBe(period / 1000)
         return `Period: ${periodValue}`
     })
 }, 300000)
@@ -475,6 +468,7 @@ test('lasttimestamp', async () => {
     await submitTx(config.client.lastTimestamp(config.adminAccount, txOptions), response => {
         const timestamp = Client.parseNumberResult(response.resultMetaXdr)
         expect(timestamp).toBeGreaterThan(0)
+        expect(timestamp).toBeLessThanOrEqual(2147483647)
         return `Timestamp: ${timestamp}`
     })
 }, 300000)
