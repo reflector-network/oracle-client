@@ -48,8 +48,23 @@ const AssetType = require('./asset-type')
  */
 
 /**
+ * @callback RequestFn
+ * @param {SorobanRpc.Server} server - Soroban RPC server
+ * @returns {Promise<any>}
+ */
+
+/**
  * @typedef {import('stellar-sdk').SorobanRpc.GetTransactionResponse} TransactionResponse
  */
+
+const feeRoundBase = 1000n
+
+function roundFee(value) {
+    if (value < feeRoundBase) {
+        return feeRoundBase
+    }
+    return ((value + feeRoundBase - 1n) / feeRoundBase) * feeRoundBase
+}
 
 /**
  * @param {OracleClient} client - Oracle client instance
@@ -74,13 +89,23 @@ async function buildTransaction(client, source, operation, options) {
 
     const request = async (server) => await server.simulateTransaction(transaction)
 
+    /**@type {SorobanRpc.Api.SimulateTransactionSuccessResponse} */
     const simulationResponse = await makeServerRequest(client.sorobanRpcUrl, request)
 
+    //Round fee up to the nearest 1000 stroops to avoid differences between the nodes
+    const resourceFee = roundFee(BigInt(simulationResponse.minResourceFee))
+    simulationResponse.transactionData.setResourceFee(resourceFee)
+
     const tx = SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
-    console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${simulationResponse.cost.cpuInsns}, memBytes: ${simulationResponse.cost.memBytes}}, minResourceFee: ${simulationResponse.minResourceFee}`)
+    console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${simulationResponse.cost.cpuInsns}, memBytes: ${simulationResponse.cost.memBytes}}, resourceFee: ${resourceFee}`)
     return tx
 }
 
+/**
+ * @param {string[]} rpcUrls - Soroban RPC server URLs
+ * @param {RequestFn} requestFn - Request function
+ * @returns {Promise<any>}
+ */
 async function makeServerRequest(rpcUrls, requestFn) {
     const errors = []
     for (const rpcUrl of rpcUrls) {
