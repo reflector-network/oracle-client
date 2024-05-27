@@ -57,13 +57,16 @@ const AssetType = require('./asset-type')
  * @typedef {import('stellar-sdk').SorobanRpc.GetTransactionResponse} TransactionResponse
  */
 
-const feeRoundBase = 1000n
+function getFactorOfValue(n) {
+    const exponent = Math.floor(Math.log10(n))
+    return Math.pow(10, exponent)
+}
 
-function roundFee(value) {
-    if (value < feeRoundBase) {
-        return feeRoundBase
-    }
-    return ((value + feeRoundBase - 1n) / feeRoundBase) * feeRoundBase
+function roundValue(value) {
+    if (value === 0)
+        return value
+    const factor = getFactorOfValue(value)
+    return Math.floor(((value * 2) / factor)) * factor
 }
 
 /**
@@ -93,11 +96,29 @@ async function buildTransaction(client, source, operation, options) {
     const simulationResponse = await makeServerRequest(client.sorobanRpcUrl, request)
 
     //Round fee up to the nearest 1000 stroops to avoid differences between the nodes
-    const resourceFee = roundFee(BigInt(simulationResponse.minResourceFee))
+    const rawFee = Number(simulationResponse.minResourceFee)
+    let resourceFee = BigInt(roundValue(rawFee))
+    if (resourceFee < 10000000n)
+        resourceFee = 10000000n
+
+    const resources = simulationResponse.transactionData._data.resources()
+    const [rawInstructions, rawReadBytes, rawWriteBytes] = [
+        resources.instructions(),
+        resources.readBytes(),
+        resources.writeBytes()
+    ]
+    const [instructions, readBytes, writeBytes] = [
+        roundValue(rawInstructions),
+        roundValue(rawReadBytes),
+        roundValue(rawWriteBytes)
+    ]
+
     simulationResponse.transactionData.setResourceFee(resourceFee)
+    simulationResponse.minResourceFee = resourceFee.toString()
+    simulationResponse.transactionData.setResources(instructions, readBytes, writeBytes)
 
     const tx = SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
-    console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${simulationResponse.cost.cpuInsns}, memBytes: ${simulationResponse.cost.memBytes}}, resourceFee: ${resourceFee}`)
+    console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${rawInstructions}:${instructions}, readBytes: ${rawReadBytes}:${readBytes}, writeBytes: ${rawWriteBytes}:${writeBytes}, fee: ${rawFee}:${resourceFee.toString()}`)
     return tx
 }
 
