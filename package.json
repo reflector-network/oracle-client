@@ -4,7 +4,7 @@
   "description": "Client bindings for Reflector contract",
   "main": "src/index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest -i"
   },
   "author": "team@stellar.expert",
   "license": "MIT",

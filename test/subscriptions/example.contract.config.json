@@ -1,0 +1,33 @@
+{
+  "decimals": 14,
+  "resolution": 120000,
+  "network": "Test SDF Network ; September 2015",
+  "sorobanRpcUrl": "https://soroban-testnet.stellar.org",
+  "friendbotUrl": "https://friendbot.stellar.org",
+  "assets": [
+    {
+      "type": 1,
+      "code": "EUR:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
+    },
+    {
+      "type": 1,
+      "code": "GBP:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
+    },
+    {
+      "type": 2,
+      "code": "EUR"
+    },
+    {
+      "type": 1,
+      "code": "CAD:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
+    },
+    {
+      "type": 1,
+      "code": "JPY:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW"
+    }
+  ],
+  "baseAsset": {
+    "type": 2,
+    "code": "USD"
+  }
+}
