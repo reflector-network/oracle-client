@@ -4,7 +4,7 @@ const crypto = require('crypto')
 const {Keypair, xdr, StrKey, Asset: StellarAsset, hash} = require('@stellar/stellar-sdk')
 const Client = require('../../src/oracle')
 const AssetType = require('../../src/asset-type')
-const {parseNumberResult, parsePriceResult, parsePricesResult, parseTwapResult, parseAdminResult, parseAssetResult, parseAssetsResult} = require('../../src/xdr-values-helper')
+const {parseSorobanResult} = require('../../src/xdr-values-helper')
 const {init, createAccount, deployContract, installContract, getAccount, updateToMultiSigAccount, submitTx} = require('../test-utils')
 const contractConfig = require('./example.contract.config.json')
 
@@ -20,7 +20,7 @@ const initAssetLength = 1
 
 const extraAsset = {type: AssetType.Other, code: 'JPY'}
 
-const assetToString = (asset) => !asset ? 'null' : `${asset.type}:${asset.code}`
+const assetToString = (asset) => !asset ? 'null' : `${asset[0]}:${asset[1]}`
 
 const priceToString = (price) => !price ? 'null' : `{price: ${price.price.toString()}, timestamp: ${price.timestamp.toString()}}`
 
@@ -186,7 +186,7 @@ test('version', async () => {
         config.client.version(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const version = parseNumberResult(response.resultMetaXdr)
+            const version = parseSorobanResult(response.resultMetaXdr)
             expect(version).toBeGreaterThan(0)
             return `Version: ${version}`
         })
@@ -220,8 +220,8 @@ test('set_period', async () => {
         config.client.period(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const newPeriod = parseNumberResult(response.resultMetaXdr)
-            expect(newPeriod).toBe(period / 1000)
+            const newPeriod = parseSorobanResult(response.resultMetaXdr)
+            expect(newPeriod).toBe(BigInt(period / 1000))
         })
 }, 300000)
 
@@ -267,7 +267,7 @@ test('twap', async () => {
         config.client.twap(config.adminAccount, contractConfig.assets[0], 2, txOptions),
         config.nodes,
         response => {
-            const twap = parseTwapResult(response.resultMetaXdr)
+            const twap = parseSorobanResult(response.resultMetaXdr)
             expect(twap > 0n).toBe(true)
             return `Twap: ${twap.toString()}`
         })
@@ -279,7 +279,7 @@ test('x_twap', async () => {
         config.client.xTwap(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions),
         config.nodes,
         response => {
-            const twap = parseTwapResult(response.resultMetaXdr)
+            const twap = parseSorobanResult(response.resultMetaXdr)
             expect(twap > 0n).toBe(true)
             return `Twap: ${twap.toString()}`
         })
@@ -291,7 +291,7 @@ test('lastprice', async () => {
         config.client.lastPrice(config.adminAccount, contractConfig.assets[0], txOptions),
         config.nodes,
         response => {
-            const price = parsePriceResult(response.resultMetaXdr)
+            const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
             return `Price: ${priceToString(price)}`
         })
@@ -303,7 +303,7 @@ test('x_lt_price', async () => {
         config.client.xLastPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], txOptions),
         config.nodes,
         response => {
-            const price = parsePriceResult(response.resultMetaXdr)
+            const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
             return `Price: ${priceToString(price)}`
         })
@@ -315,7 +315,7 @@ test('price', async () => {
         config.client.price(config.adminAccount, contractConfig.assets[1], lastTimestamp / 1000, txOptions),
         config.nodes,
         response => {
-            const price = parsePriceResult(response.resultMetaXdr)
+            const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
             return `Price: ${priceToString(price)}`
         })
@@ -328,7 +328,7 @@ test('price (non existing)', async () => {
         config.client.price(config.adminAccount, contractConfig.assets[1], 10000000000, txOptions),
         config.nodes,
         response => {
-            const price = parsePriceResult(response.resultMetaXdr)
+            const price = parseSorobanResult(response.resultMetaXdr)
             expect(price).toBe(null)
         })
 }, 300000)
@@ -339,7 +339,7 @@ test('x_price', async () => {
         config.client.xPrice(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp / 1000, txOptions),
         config.nodes,
         response => {
-            const price = parsePriceResult(response.resultMetaXdr)
+            const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
             return `Price: ${priceToString(price)}`
         })
@@ -351,7 +351,7 @@ test('prices', async () => {
         config.client.prices(config.adminAccount, contractConfig.assets[0], 2, txOptions),
         config.nodes,
         response => {
-            const prices = parsePricesResult(response.resultMetaXdr)
+            const prices = parseSorobanResult(response.resultMetaXdr)
             expect(prices.length > 0).toBe(true)
             return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
         })
@@ -363,7 +363,7 @@ test('x_prices', async () => {
         config.client.xPrices(config.adminAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions),
         config.nodes,
         response => {
-            const prices = parsePricesResult(response.resultMetaXdr)
+            const prices = parseSorobanResult(response.resultMetaXdr)
             expect(prices.length > 0).toBe(true)
             return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
         })
@@ -390,7 +390,7 @@ test('admin', async () => {
         config.client.admin(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const adminPublicKey = parseAdminResult(response.resultMetaXdr)
+            const adminPublicKey = parseSorobanResult(response.resultMetaXdr)
             expect(config.admin.publicKey()).toBe(adminPublicKey)
             return `Admin: ${adminPublicKey}`
         })
@@ -402,8 +402,8 @@ test('base', async () => {
         config.client.base(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const base = parseAssetResult(response.resultMetaXdr)
-            expect(base !== null && base !== undefined).toBe(true)
+            const base = parseSorobanResult(response.resultMetaXdr)
+            expect(base).toBeDefined()
             return `Base: ${assetToString(base)}`
         })
 }, 3000000)
@@ -415,7 +415,7 @@ test('decimals', async () => {
         config.client.decimals(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const decimals = parseNumberResult(response.resultMetaXdr)
+            const decimals = parseSorobanResult(response.resultMetaXdr)
             expect(decimals).toBe(contractConfig.decimals)
             return `Decimals: ${decimals}`
         })
@@ -427,7 +427,7 @@ test('resolution', async () => {
         config.client.resolution(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const resolution = parseNumberResult(response.resultMetaXdr)
+            const resolution = parseSorobanResult(response.resultMetaXdr)
             expect(resolution).toBe(contractConfig.resolution / 1000) //in seconds
             return `Resolution: ${resolution}`
         })
@@ -439,8 +439,8 @@ test('period', async () => {
         config.client.period(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const periodValue = parseNumberResult(response.resultMetaXdr)
-            expect(periodValue).toBe(period / 1000)
+            const periodValue = parseSorobanResult(response.resultMetaXdr)
+            expect(periodValue).toBe(BigInt(period / 1000))
             return `Period: ${periodValue}`
         })
 }, 300000)
@@ -451,7 +451,7 @@ test('assets', async () => {
         config.client.assets(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const assets = parseAssetsResult(response.resultMetaXdr)
+            const assets = parseSorobanResult(response.resultMetaXdr)
             expect(assets.length).toEqual(contractConfig.assets.length)
             return `Assets: ${assets.map(a => assetToString(a)).join(', ')}`
         })
@@ -463,7 +463,7 @@ test('lasttimestamp', async () => {
         config.client.lastTimestamp(config.adminAccount, txOptions),
         config.nodes,
         response => {
-            const timestamp = parseNumberResult(response.resultMetaXdr)
+            const timestamp = parseSorobanResult(response.resultMetaXdr)
             expect(timestamp).toBeGreaterThan(0)
             expect(timestamp).toBeLessThanOrEqual(2147483647)
             return `Timestamp: ${timestamp}`

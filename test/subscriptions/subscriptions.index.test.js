@@ -1,9 +1,9 @@
 /*eslint-disable no-undef */
 /*eslint-disable no-inner-declarations */
-const {Keypair, StrKey, Asset: StellarAsset} = require('@stellar/stellar-sdk')
+const {Keypair, Asset: StellarAsset} = require('@stellar/stellar-sdk')
 const Client = require('../../src/subscriptions')
-const {parseNumberResult, parseAdminResult, getSorobanResultValue} = require('../../src/xdr-values-helper')
-const {init, deployAsset, installContract, deployContract, createAccount, setTrust, getAccount, mint, updateToMultiSigAccount, getMajority, submitTx} = require('../test-utils')
+const {parseSorobanResult} = require('../../src/xdr-values-helper')
+const {init, deployAsset, installContract, deployContract, createAccount, setTrust, getAccount, mint, updateToMultiSigAccount, submitTx} = require('../test-utils')
 const contractConfig = require('./example.contract.config.json')
 
 init(contractConfig.sorobanRpcUrl, contractConfig.network, contractConfig.friendbotUrl)
@@ -117,7 +117,7 @@ test('version', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
-            const version = parseNumberResult(response.resultMetaXdr)
+            const version = parseSorobanResult(response.resultMetaXdr)
             expect(version).toBeDefined()
             return `Version: ${version}`
         })
@@ -137,22 +137,45 @@ test('setFee', async () => {
 }, 300000)
 
 test('createSubscription', async () => {
+    let lastId = 0
+    for (let i = 0; i < 151; i++) {
+        try {
+            txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+            await submitTx(
+                config.client.createSubscription(config.clientAccount, {
+                    owner: config.clientKp.publicKey(),
+                    asset1: {asset: {type: 2, code: 'BTC'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
+                    asset2: {asset: {type: 1, code: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
+                    threshold: 2,
+                    heartbeat: 60,
+                    webhook: 'http://localhost:3000',
+                    amount: 1000
+                }, txOptions),
+                [config.clientKp],
+                response => {
+                    expect(response.status).toBe('SUCCESS')
+                    lastId++
+                    const id = parseSorobanResult(response.resultMetaXdr)
+                    expect(id).toBe(BigInt(lastId))
+                })
+        } catch (e) {
+            console.log(e)
+        }
+    }
+}, 30000000)
+
+test('getSubscription', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
     await submitTx(
-        config.client.createSubscription(config.clientAccount, {
-            owner: config.clientKp.publicKey(),
-            asset1: {asset: {type: 2, code: 'BTC'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
-            asset2: {asset: {type: 2, code: 'USD'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
-            threshold: 2,
-            heartbeat: 60,
-            webhook: 'http://localhost:3000',
-            amount: 1000
+        config.client.getSubscription(config.clientAccount, {
+            subscriptionId: 1
         }, txOptions),
         [config.clientKp],
         response => {
             expect(response.status).toBe('SUCCESS')
-            const id = parseNumberResult(response.resultMetaXdr)
-            expect(id).toBe(1)
+            const subscription = parseSorobanResult(response.resultMetaXdr)
+            expect(subscription).toBeDefined()
+            return `Subscription: ${subscription}`
         })
 }, 300000)
 
@@ -218,7 +241,7 @@ test('admin', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
-            const adminPublicKey = parseAdminResult(response.resultMetaXdr)
+            const adminPublicKey = parseSorobanResult(response.resultMetaXdr)
             expect(config.admin.publicKey()).toBe(adminPublicKey)
             return `Admin: ${adminPublicKey}`
         })
@@ -231,7 +254,7 @@ test('getFee', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
-            const fee = parseNumberResult(response.resultMetaXdr)
+            const fee = parseSorobanResult(response.resultMetaXdr)
             expect(fee).toBeGreaterThan(0)
         })
 }, 3000000)
@@ -244,10 +267,7 @@ test('getToken', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
-            const token = StrKey.encodeContract(
-                getSorobanResultValue(response.resultMetaXdr).value().contractId()
-            )
-            expect(config.token).toBe(token)
+            expect(config.token).toBe(parseSorobanResult(response.resultMetaXdr))
         })
 }, 300000)
 

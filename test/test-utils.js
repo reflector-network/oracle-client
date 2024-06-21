@@ -2,6 +2,10 @@ const {exec} = require('child_process')
 const {TransactionBuilder, Operation, SorobanRpc, Transaction} = require('@stellar/stellar-sdk')
 const {makeServerRequest} = require('../src/rpc-helper')
 
+/**
+ * @typedef {import('@stellar/stellar-sdk').xdr.SorobanTransactionMeta} SorobanTransactionMeta
+ */
+
 let server = null
 let rpcUrl = null
 let network = null
