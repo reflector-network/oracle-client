@@ -143,7 +143,7 @@ class SubscriptionsClient extends ContractClientBase {
     /**
      * Builds a transaction to trigger subscriptions
      * @param {Account} source - Account object
-     * @param {{ids: number[], isHeartbeat: boolean, admin: string}} data - Subscription trigger data
+     * @param {{heartbeatIds: BigInt[], triggerIds: BigInt[], timestamp: number, admin: string}} data - Subscription trigger data
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -153,10 +153,13 @@ class SubscriptionsClient extends ContractClientBase {
             contract: this.contractId,
             function: 'trigger',
             args: [
+                xdr.ScVal.scvU64(xdr.Uint64.fromString(data.timestamp.toString())),
                 xdr.ScVal.scvVec(
-                    data.ids.map(id => xdr.ScVal.scvU64(xdr.Uint64.fromString(id.toString())))
+                    data.heartbeatIds.map(id => xdr.ScVal.scvU64(xdr.Uint64.fromString(id.toString())))
                 ),
-                xdr.ScVal.scvBool(data.isHeartbeat)
+                xdr.ScVal.scvVec(
+                    data.triggerIds.map(id => xdr.ScVal.scvU64(xdr.Uint64.fromString(id.toString())))
+                )
             ]
         })
         return await buildTransaction(

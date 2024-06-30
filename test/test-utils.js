@@ -37,17 +37,17 @@ async function exexCommand(command) {
 }
 
 async function deployContract(hash, secret) {
-    const command = `soroban contract deploy --wasm-hash ${hash} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
+    const command = `stellar contract deploy --wasm-hash ${hash} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
     return await exexCommand(command)
 }
 
 async function installContract(contractPath, secret) {
-    const command = `soroban contract install --wasm ${contractPath} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
+    const command = `stellar contract install --wasm ${contractPath} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
     return await exexCommand(command)
 }
 
 async function deployAsset(asset, secret) {
-    const command = `soroban lab token wrap --asset ${asset} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
+    const command = `stellar contract asset deploy --asset ${asset} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
     return await exexCommand(command)
 }
 

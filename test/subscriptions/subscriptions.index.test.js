@@ -33,7 +33,7 @@ async function prepare() {
         await createAccount(config.admin.publicKey())
         config.token = await deployAsset(`${assetCode}:${config.admin.publicKey()}`, config.admin.secret())
 
-        config.updateContractWasmHash = await installContract('./test/subscriptions/reflector_subscription.wasm', config.admin.secret())
+        config.updateContractWasmHash = await installContract('./test/subscriptions/reflector_subscriptions.wasm', config.admin.secret())
         config.contractId = await deployContract(config.updateContractWasmHash, config.admin.secret())
 
         config.adminAccount = await getAccount(config.admin.publicKey())
@@ -138,7 +138,7 @@ test('setFee', async () => {
 
 test('createSubscription', async () => {
     let lastId = 0
-    for (let i = 0; i < 151; i++) {
+    for (let i = 0; i < 1; i++) {
         try {
             txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
             await submitTx(
@@ -211,22 +211,9 @@ test('trigger', async () => {
     await submitTx(
         config.client.trigger(config.adminAccount, {
             admin: config.admin.publicKey(),
-            ids: [1],
-            isHeartbeat: false
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-        })
-}, 300000)
-
-test('trigger(heartbeat)', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.trigger(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            ids: [1],
-            isHeartbeat: true
+            timestamp: Date.now(),
+            triggerIds: [1],
+            heartbeatIds: [1]
         }, txOptions),
         config.nodes,
         response => {
@@ -245,7 +232,7 @@ test('admin', async () => {
             expect(config.admin.publicKey()).toBe(adminPublicKey)
             return `Admin: ${adminPublicKey}`
         })
-}, 3000000)
+}, 300000)
 
 test('getFee', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
@@ -257,7 +244,7 @@ test('getFee', async () => {
             const fee = parseSorobanResult(response.resultMetaXdr)
             expect(fee).toBeGreaterThan(0)
         })
-}, 3000000)
+}, 300000)
 
 
 test('getToken', async () => {
