@@ -46,7 +46,7 @@ const ContractClientBase = require('../client-base')
  * @property {TickerAsset} asset2 - Asset 2 to subscribe
  * @property {number} threshold - Threshold value in percentage
  * @property {number} heartbeat - Heartbeat value in minutes
- * @property {string} webhook - Webhook URL
+ * @property {Buffer} webhook - Webhook URL
  * @property {number} amount - Deposit amount
  */
 
@@ -120,7 +120,7 @@ class SubscriptionsClient extends ContractClientBase {
             }),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('webhook'),
-                val: xdr.ScVal.scvString(subscription.webhook)
+                val: xdr.ScVal.scvBytes(subscription.webhook)
             })
         ])
 
@@ -143,7 +143,7 @@ class SubscriptionsClient extends ContractClientBase {
     /**
      * Builds a transaction to trigger subscriptions
      * @param {Account} source - Account object
-     * @param {{heartbeatIds: BigInt[], triggerIds: BigInt[], timestamp: number, admin: string}} data - Subscription trigger data
+     * @param {{triggerHash: Buffer, timestamp: number, admin: string}} data - Subscription trigger data
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
@@ -154,13 +154,30 @@ class SubscriptionsClient extends ContractClientBase {
             function: 'trigger',
             args: [
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(data.timestamp.toString())),
-                xdr.ScVal.scvVec(
-                    data.heartbeatIds.map(id => xdr.ScVal.scvU64(xdr.Uint64.fromString(id.toString())))
-                ),
-                xdr.ScVal.scvVec(
-                    data.triggerIds.map(id => xdr.ScVal.scvU64(xdr.Uint64.fromString(id.toString())))
-                )
+                xdr.ScVal.scvBytes(data.triggerHash)
             ]
+        })
+        return await buildTransaction(
+            this,
+            source,
+            invocation,
+            options
+        )
+    }
+
+    /**
+     * Builds a transaction to cancel subscription
+     * @param {Account} source - Account object
+     * @param {{subscriptionId: number}} data - Subscription cancel data
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async cancel(source, data, options) {
+        const invocation = Operation.invokeContractFunction({
+            source: source.accountId(),
+            contract: this.contractId,
+            function: 'cancel',
+            args: [xdr.ScVal.scvU64(xdr.Uint64.fromString(data.subscriptionId.toString()))]
         })
         return await buildTransaction(
             this,
@@ -247,7 +264,7 @@ class SubscriptionsClient extends ContractClientBase {
     /**
      * Builds a transaction to get subscription object
      * @param {Account} source - Account object
-     * @param {{subscriptionId: number}} data - Withdraw data
+     * @param {{subscriptionId: number}} data - Subscription data
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */

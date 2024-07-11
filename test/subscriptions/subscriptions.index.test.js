@@ -1,5 +1,6 @@
 /*eslint-disable no-undef */
 /*eslint-disable no-inner-declarations */
+const crypto = require('crypto')
 const {Keypair, Asset: StellarAsset} = require('@stellar/stellar-sdk')
 const Client = require('../../src/subscriptions')
 const {parseSorobanResult} = require('../../src/xdr-values-helper')
@@ -141,6 +142,8 @@ test('createSubscription', async () => {
     for (let i = 0; i < 1; i++) {
         try {
             txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+            //random buffer
+            const webhook = crypto.randomBytes(1024)
             await submitTx(
                 config.client.createSubscription(config.clientAccount, {
                     owner: config.clientKp.publicKey(),
@@ -148,14 +151,14 @@ test('createSubscription', async () => {
                     asset2: {asset: {type: 1, code: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
                     threshold: 2,
                     heartbeat: 60,
-                    webhook: 'http://localhost:3000',
+                    webhook,
                     amount: 1000
                 }, txOptions),
                 [config.clientKp],
                 response => {
                     expect(response.status).toBe('SUCCESS')
                     lastId++
-                    const id = parseSorobanResult(response.resultMetaXdr)
+                    const [id] = parseSorobanResult(response.resultMetaXdr)
                     expect(id).toBe(BigInt(lastId))
                 })
         } catch (e) {
@@ -208,14 +211,26 @@ test('charge', async () => {
 
 test('trigger', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+    const triggerHash = crypto.randomBytes(32)
     await submitTx(
         config.client.trigger(config.adminAccount, {
             admin: config.admin.publicKey(),
             timestamp: Date.now(),
-            triggerIds: [1],
-            heartbeatIds: [1]
+            triggerHash
         }, txOptions),
         config.nodes,
+        response => {
+            expect(response.status).toBe('SUCCESS')
+        })
+}, 300000)
+
+test('cancelSubscription', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+    await submitTx(
+        config.client.cancel(config.clientAccount, {
+            subscriptionId: 1
+        }, txOptions),
+        [config.clientKp],
         response => {
             expect(response.status).toBe('SUCCESS')
         })
