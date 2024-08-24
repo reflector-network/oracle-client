@@ -147,8 +147,8 @@ test('createSubscription', async () => {
             await submitTx(
                 config.client.createSubscription(config.clientAccount, {
                     owner: config.clientKp.publicKey(),
-                    asset1: {asset: {type: 2, code: 'BTC'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
-                    asset2: {asset: {type: 1, code: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'}, source: 'CD22G3I2V5PH6EFRWW3I3HKFPAQI3TRCH34QFR6HJTAYMFGJNVNPPEWD'},
+                    base: {asset: 'BTC', source: 'exchanges'},
+                    quote: {asset: 'JPY:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW', source: 'pubnet'},
                     threshold: 2,
                     heartbeat: 60,
                     webhook,

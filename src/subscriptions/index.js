@@ -13,12 +13,6 @@ const ContractClientBase = require('../client-base')
  */
 
 /**
- * @typedef {Object} Asset
- * @property {AssetType} type - Asset type
- * @property {string} code - Asset code
- */
-
-/**
  * @typedef {Object} TxOptions
  * @property {number} fee - Transaction fee in stroops
  * @property {string} memo - Transaction memo
@@ -35,15 +29,15 @@ const ContractClientBase = require('../client-base')
 
 /**
  * @typedef {Object} TickerAsset
- * @property {Asset} asset - Asset object
+ * @property {string} asset - Asset code
  * @property {string} source - Asset source contract ID
  */
 
 /**
  * @typedef {Object} CreateSubscription
  * @property {string} owner - Valid Stellar account ID
- * @property {TickerAsset} asset1 - Asset 1 to subscribe
- * @property {TickerAsset} asset2 - Asset 2 to subscribe
+ * @property {TickerAsset} base - Base asset to subscribe
+ * @property {TickerAsset} quote - Quote asset to subscribe
  * @property {number} threshold - Threshold value in percentage
  * @property {number} heartbeat - Heartbeat value in minutes
  * @property {Buffer} webhook - Webhook URL
@@ -99,12 +93,8 @@ class SubscriptionsClient extends ContractClientBase {
 
         const subscriptionScVal = xdr.ScVal.scvMap([
             new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('asset1'),
-                val: buildTickerAssetScVal(subscription.asset1)
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('asset2'),
-                val: buildTickerAssetScVal(subscription.asset2)
+                key: xdr.ScVal.scvSymbol('base'),
+                val: buildTickerAssetScVal(subscription.base)
             }),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('heartbeat'),
@@ -113,6 +103,10 @@ class SubscriptionsClient extends ContractClientBase {
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('owner'),
                 val: new Address(subscription.owner).toScVal()
+            }),
+            new xdr.ScMapEntry({
+                key: xdr.ScVal.scvSymbol('quote'),
+                val: buildTickerAssetScVal(subscription.quote)
             }),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('threshold'),

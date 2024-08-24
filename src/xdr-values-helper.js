@@ -18,7 +18,7 @@ function buildAssetScVal(asset) {
 
 function buildTickerAssetScVal(tickerAsset) {
     return xdr.ScVal.scvMap([
-        new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('asset'), val: buildAssetScVal(tickerAsset.asset)}),
+        new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('asset'), val: xdr.ScVal.scvString(tickerAsset.asset)}),
         new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('source'), val: xdr.ScVal.scvString(tickerAsset.source)})
     ])
 }
