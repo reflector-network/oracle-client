@@ -1,4 +1,4 @@
-const {SorobanRpc, TransactionBuilder, Memo} = require('@stellar/stellar-sdk')
+const {SorobanRpc, TransactionBuilder, Memo, BASE_FEE, Operation} = require('@stellar/stellar-sdk')
 
 /**
  * @callback RequestFn
@@ -8,6 +8,7 @@ const {SorobanRpc, TransactionBuilder, Memo} = require('@stellar/stellar-sdk')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').SorobanRpc.GetTransactionResponse} TransactionResponse
+ * @typedef {import('./client-base')} ClientBase
  */
 
 function getFactorOfValue(n) {
@@ -23,7 +24,27 @@ function roundValue(value) {
 }
 
 /**
- * @param {OracleClient} client - Oracle client instance
+ * @param {SorobanRpc.Api.SimulateTransactionRestoreResponse} simulationResponse - simulation response
+ * @param {Account} source - Account object
+ * @param {any} txOptions - Transaction options
+ * @returns {Transaction}
+ */
+function getRestoreTransaction(simulationResponse, source, txOptions) {
+    //normalize fee
+    let fee = parseInt(BASE_FEE, 10)
+    fee += parseInt(simulationResponse.restorePreamble.minResourceFee, 10)
+    txOptions.fee = roundValue(fee).toString()
+
+    //build restore transaction
+    const restoreTx = new TransactionBuilder(source, txOptions)
+        .setSorobanData(simulationResponse.restorePreamble.transactionData.build())
+        .addOperation(Operation.restoreFootprint({}))
+        .build()
+    return restoreTx
+}
+
+/**
+ * @param {ClientBase} client - Oracle client instance
  * @param {Account} source - Account object
  * @param {xdr.Operation} operation - Stellar operation
  * @param {TxOptions} options - Transaction options
@@ -49,6 +70,10 @@ async function buildTransaction(client, source, operation, options) {
     const simulationResponse = await makeServerRequest(client.sorobanRpcUrl, request)
     if (simulationResponse.error)
         throw new Error(simulationResponse.error)
+    if (SorobanRpc.Api.isSimulationRestore(simulationResponse)) {
+        console.info(`Simulation response is restore preamble. Contract ${client.contractId}. Building restore transaction.`)
+        return getRestoreTransaction(simulationResponse, source, txBuilderOptions)
+    }
 
     //Round fee up to the nearest 1000 stroops to avoid differences between the nodes
     const rawFee = Number(simulationResponse.minResourceFee)
