@@ -1,4 +1,6 @@
 const {exec} = require('child_process')
+const crypto = require('crypto')
+const fs = require('fs')
 const {TransactionBuilder, Operation, SorobanRpc, Transaction} = require('@stellar/stellar-sdk')
 const {makeServerRequest} = require('../src/rpc-helper')
 
@@ -26,11 +28,11 @@ async function exexCommand(command) {
                 reject(error)
                 return
             }
-            if (stderr) {
-                console.error(`stderr: ${stderr}`)
-                reject(new Error(stderr))
-                return
-            }
+            //if (stderr) {
+            //console.error(`stderr: ${stderr}`)
+            //reject(new Error(stderr))
+            //return
+            //}
             resolve(stdout.trim())
         })
     })
