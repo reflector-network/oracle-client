@@ -1,4 +1,4 @@
-const {SorobanRpc, TransactionBuilder, Memo, BASE_FEE, Operation} = require('@stellar/stellar-sdk')
+const {SorobanRpc, TransactionBuilder, Memo, BASE_FEE, Operation, Account} = require('@stellar/stellar-sdk')
 
 /**
  * @callback RequestFn
@@ -60,7 +60,8 @@ async function buildTransaction(client, source, operation, options) {
     txBuilderOptions.networkPassphrase = client.network
     txBuilderOptions.timebounds = options.timebounds
 
-    const transaction = new TransactionBuilder(source, txBuilderOptions)
+    //keep original source account for the restore transaction
+    const transaction = new TransactionBuilder(new Account(source.accountId(), source.sequence.toString()), txBuilderOptions)
         .addOperation(operation)
         .build()
 
@@ -72,7 +73,7 @@ async function buildTransaction(client, source, operation, options) {
         throw new Error(simulationResponse.error)
     if (SorobanRpc.Api.isSimulationRestore(simulationResponse)) {
         console.info(`Simulation response is restore preamble. Contract ${client.contractId}. Building restore transaction.`)
-        return getRestoreTransaction(simulationResponse, source, txBuilderOptions)
+        return getRestoreTransaction(simulationResponse, new Account(source.accountId(), source.sequence.toString()), txBuilderOptions)
     }
 
     //Round fee up to the nearest 1000 stroops to avoid differences between the nodes

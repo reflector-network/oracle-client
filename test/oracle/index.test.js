@@ -177,6 +177,7 @@ test('config', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -188,6 +189,7 @@ test('version', async () => {
         response => {
             const version = parseSorobanResult(response.resultMetaXdr)
             expect(version).toBeGreaterThan(0)
+            config.adminAccount.incrementSequenceNumber()
             return `Version: ${version}`
         })
 }, 300000)
@@ -202,6 +204,7 @@ test('add_assets', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.updatesAdminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -214,6 +217,7 @@ test('set_period', async () => {
             period
         }, txOptions), config.nodes, response => {
             expect(response.status).toBe('SUCCESS')
+            config.updatesAdminAccount.incrementSequenceNumber()
         })
 
     await submitTx(
@@ -222,6 +226,7 @@ test('set_period', async () => {
         response => {
             const newPeriod = parseSorobanResult(response.resultMetaXdr)
             expect(newPeriod).toBe(BigInt(period / 1000))
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -240,6 +245,7 @@ test('set_price (extra price)', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
         })
     currentPriceTimestamp -= contractConfig.resolution
 }, 300000)
@@ -257,6 +263,7 @@ test('set_price', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
         })
     currentPriceTimestamp -= contractConfig.resolution
 }, 300000)
@@ -269,6 +276,7 @@ test('twap', async () => {
         response => {
             const twap = parseSorobanResult(response.resultMetaXdr)
             expect(twap > 0n).toBe(true)
+            config.adminAccount.incrementSequenceNumber()
             return `Twap: ${twap.toString()}`
         })
 }, 300000)
@@ -281,6 +289,7 @@ test('x_twap', async () => {
         response => {
             const twap = parseSorobanResult(response.resultMetaXdr)
             expect(twap > 0n).toBe(true)
+            config.adminAccount.incrementSequenceNumber()
             return `Twap: ${twap.toString()}`
         })
 }, 300000)
@@ -293,6 +302,7 @@ test('lastprice', async () => {
         response => {
             const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
+            config.adminAccount.incrementSequenceNumber()
             return `Price: ${priceToString(price)}`
         })
 }, 300000)
@@ -305,6 +315,7 @@ test('x_lt_price', async () => {
         response => {
             const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
+            config.adminAccount.incrementSequenceNumber()
             return `Price: ${priceToString(price)}`
         })
 }, 300000)
@@ -317,6 +328,7 @@ test('price', async () => {
         response => {
             const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
+            config.adminAccount.incrementSequenceNumber()
             return `Price: ${priceToString(price)}`
         })
 }, 300000)
@@ -330,6 +342,7 @@ test('price (non existing)', async () => {
         response => {
             const price = parseSorobanResult(response.resultMetaXdr)
             expect(price).toBe(null)
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -341,6 +354,7 @@ test('x_price', async () => {
         response => {
             const price = parseSorobanResult(response.resultMetaXdr)
             expect(price.price).toBeGreaterThan(0n)
+            config.adminAccount.incrementSequenceNumber()
             return `Price: ${priceToString(price)}`
         })
 }, 300000)
@@ -353,6 +367,7 @@ test('prices', async () => {
         response => {
             const prices = parseSorobanResult(response.resultMetaXdr)
             expect(prices.length > 0).toBe(true)
+            config.adminAccount.incrementSequenceNumber()
             return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
         })
 }, 300000)
@@ -365,6 +380,7 @@ test('x_prices', async () => {
         response => {
             const prices = parseSorobanResult(response.resultMetaXdr)
             expect(prices.length > 0).toBe(true)
+            config.adminAccount.incrementSequenceNumber()
             return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
         })
 }, 300000)
@@ -379,6 +395,7 @@ test('add_asset (extra asset)', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.updatesAdminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -392,6 +409,7 @@ test('admin', async () => {
         response => {
             const adminPublicKey = parseSorobanResult(response.resultMetaXdr)
             expect(config.admin.publicKey()).toBe(adminPublicKey)
+            config.adminAccount.incrementSequenceNumber()
             return `Admin: ${adminPublicKey}`
         })
 }, 3000000)
@@ -404,6 +422,7 @@ test('base', async () => {
         response => {
             const base = parseSorobanResult(response.resultMetaXdr)
             expect(base).toBeDefined()
+            config.adminAccount.incrementSequenceNumber()
             return `Base: ${assetToString(base)}`
         })
 }, 3000000)
@@ -417,6 +436,7 @@ test('decimals', async () => {
         response => {
             const decimals = parseSorobanResult(response.resultMetaXdr)
             expect(decimals).toBe(contractConfig.decimals)
+            config.adminAccount.incrementSequenceNumber()
             return `Decimals: ${decimals}`
         })
 }, 300000)
@@ -429,6 +449,7 @@ test('resolution', async () => {
         response => {
             const resolution = parseSorobanResult(response.resultMetaXdr)
             expect(resolution).toBe(contractConfig.resolution / 1000) //in seconds
+            config.adminAccount.incrementSequenceNumber()
             return `Resolution: ${resolution}`
         })
 }, 300000)
@@ -441,6 +462,7 @@ test('period', async () => {
         response => {
             const periodValue = parseSorobanResult(response.resultMetaXdr)
             expect(periodValue).toBe(BigInt(period / 1000))
+            config.adminAccount.incrementSequenceNumber()
             return `Period: ${periodValue}`
         })
 }, 300000)
@@ -453,6 +475,7 @@ test('assets', async () => {
         response => {
             const assets = parseSorobanResult(response.resultMetaXdr)
             expect(assets.length).toEqual(contractConfig.assets.length)
+            config.adminAccount.incrementSequenceNumber()
             return `Assets: ${assets.map(a => assetToString(a)).join(', ')}`
         })
 }, 300000)
@@ -466,6 +489,7 @@ test('lasttimestamp', async () => {
             const timestamp = parseSorobanResult(response.resultMetaXdr)
             expect(timestamp).toBeGreaterThan(0)
             expect(timestamp).toBeLessThanOrEqual(2147483647)
+            config.adminAccount.incrementSequenceNumber()
             return `Timestamp: ${timestamp}`
         })
 }, 300000)
@@ -480,5 +504,6 @@ test('update_contract', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.updatesAdminAccount.incrementSequenceNumber()
         })
 }, 300000)

@@ -108,6 +108,7 @@ test('config', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -120,6 +121,7 @@ test('version', async () => {
             expect(response.status).toBe('SUCCESS')
             const version = parseSorobanResult(response.resultMetaXdr)
             expect(version).toBeDefined()
+            config.adminAccount.incrementSequenceNumber()
             return `Version: ${version}`
         })
 }, 300000)
@@ -134,6 +136,7 @@ test('setFee', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.updatesAdminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -160,6 +163,7 @@ test('createSubscription', async () => {
                     lastId++
                     const [id] = parseSorobanResult(response.resultMetaXdr)
                     expect(id).toBe(BigInt(lastId))
+                    config.clientAccount.incrementSequenceNumber()
                 })
         } catch (e) {
             console.log(e)
@@ -178,6 +182,7 @@ test('getSubscription', async () => {
             expect(response.status).toBe('SUCCESS')
             const subscription = parseSorobanResult(response.resultMetaXdr)
             expect(subscription).toBeDefined()
+            config.clientAccount.incrementSequenceNumber()
             return `Subscription: ${subscription}`
         })
 }, 300000)
@@ -193,6 +198,7 @@ test('deposit', async () => {
         [config.clientKp],
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.clientAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -206,6 +212,7 @@ test('charge', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -221,6 +228,7 @@ test('trigger', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -233,6 +241,7 @@ test('cancelSubscription', async () => {
         [config.clientKp],
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.clientAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -245,6 +254,7 @@ test('admin', async () => {
             expect(response.status).toBe('SUCCESS')
             const adminPublicKey = parseSorobanResult(response.resultMetaXdr)
             expect(config.admin.publicKey()).toBe(adminPublicKey)
+            config.adminAccount.incrementSequenceNumber()
             return `Admin: ${adminPublicKey}`
         })
 }, 300000)
@@ -258,6 +268,7 @@ test('getFee', async () => {
             expect(response.status).toBe('SUCCESS')
             const fee = parseSorobanResult(response.resultMetaXdr)
             expect(fee).toBeGreaterThan(0)
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -270,6 +281,7 @@ test('getToken', async () => {
         response => {
             expect(response.status).toBe('SUCCESS')
             expect(config.token).toBe(parseSorobanResult(response.resultMetaXdr))
+            config.adminAccount.incrementSequenceNumber()
         })
 }, 300000)
 
@@ -283,5 +295,6 @@ test('update_contract', async () => {
         config.nodes,
         response => {
             expect(response.status).toBe('SUCCESS')
+            config.updatesAdminAccount.incrementSequenceNumber()
         })
 }, 300000)
