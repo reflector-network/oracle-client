@@ -9,7 +9,8 @@ const ContractClientBase = require('../client-base')
 const {buildAssetScVal} = require('../xdr-values-helper')
 
 /**
- * @typedef {import('soroban-client').Account} Account
+ * @typedef {import('@stellar/stellar-sdk').Account} Account
+ * @typedef {import('@stellar/stellar-sdk').Transaction} Transaction
  */
 
 /**
@@ -23,7 +24,6 @@ const {buildAssetScVal} = require('../xdr-values-helper')
  * @property {number} fee - Transaction fee in stroops
  * @property {string} memo - Transaction memo
  * @property {{minTime: number | Data, maxTime: number | Date}} timebounds - Transaction timebounds. Date must be rounded to seconds
- * @property {string[]} signers - Transaction signers
  */
 
 /**

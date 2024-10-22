@@ -1,0 +1,12 @@
+{
+  "network": "Test SDF Network ; September 2015",
+  "sorobanRpcUrl": "https://soroban-testnet.stellar.org",
+  "friendbotUrl": "https://friendbot.stellar.org",
+  "amount": 100000000000,
+  "depositParams": {
+    "0": 100000,
+    "1": 10000000,
+    "2": 10000,
+    "3": 10000000
+  }
+}
