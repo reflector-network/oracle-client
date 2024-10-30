@@ -1,6 +1,6 @@
 {
   "name": "@reflector/oracle-client",
-  "version": "5.0.1",
+  "version": "6.0.0",
   "description": "Client bindings for Reflector contract",
   "main": "src/index.js",
   "scripts": {
