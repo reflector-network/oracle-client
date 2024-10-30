@@ -198,7 +198,7 @@ async function submitTransaction(transaction, signatures = []) {
     let tries = 0
     while (response.status === 'PENDING' || response.status === 'NOT_FOUND') {
         response = await getTransaction(hash)
-        if (++tries > 10)
+        if (++tries > 20)
             throw new Error('Transaction not found after 10 tries')
         await new Promise(resolve => setTimeout(resolve, 500))
     }
