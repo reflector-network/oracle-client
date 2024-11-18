@@ -1,13 +1,13 @@
 const {exec} = require('child_process')
-const crypto = require('crypto')
-const fs = require('fs')
-const {TransactionBuilder, Operation, SorobanRpc, Transaction} = require('@stellar/stellar-sdk')
+const {TransactionBuilder, Operation, rpc, Transaction} = require('@stellar/stellar-sdk')
+const axios = require('axios')
 const {makeServerRequest} = require('../src/rpc-helper')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').xdr.SorobanTransactionMeta} SorobanTransactionMeta
  */
 
+/**@type {rpc.Server} */
 let server = null
 let rpcUrl = null
 let network = null
@@ -17,7 +17,7 @@ function init(sorobanRpcUrl, networkPassphrase, networkFriendbotUrl) {
     rpcUrl = sorobanRpcUrl
     network = networkPassphrase
     friendbotUrl = networkFriendbotUrl
-    server = new SorobanRpc.Server(sorobanRpcUrl)
+    server = new rpc.Server(sorobanRpcUrl)
 }
 
 async function exexCommand(command) {
@@ -91,7 +91,7 @@ function getMajority(totalSignersCount) {
 }
 
 async function createAccount(publicKey) {
-    return await server.requestAirdrop(publicKey, friendbotUrl)
+    await axios.get(`${friendbotUrl}?addr=${publicKey}`)
 }
 
 async function setTrust(source, asset, signer) {

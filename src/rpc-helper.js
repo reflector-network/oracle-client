@@ -1,13 +1,12 @@
-const {SorobanRpc, TransactionBuilder, Memo, BASE_FEE, Operation, Account} = require('@stellar/stellar-sdk')
+const {rpc, TransactionBuilder, Memo, BASE_FEE, Operation, Account} = require('@stellar/stellar-sdk')
 
 /**
  * @callback RequestFn
- * @param {SorobanRpc.Server} server - Soroban RPC server
+ * @param {rpc.Server} server - Soroban RPC server
  * @returns {Promise<any>}
  */
 
 /**
- * @typedef {import('@stellar/stellar-sdk').SorobanRpc.GetTransactionResponse} TransactionResponse
  * @typedef {import('./client-base')} ClientBase
  */
 
@@ -24,7 +23,7 @@ function roundValue(value) {
 }
 
 /**
- * @param {SorobanRpc.Api.SimulateTransactionRestoreResponse} simulationResponse - simulation response
+ * @param {rpc.Api.SimulateTransactionRestoreResponse} simulationResponse - simulation response
  * @param {Account} source - Account object
  * @param {any} txOptions - Transaction options
  * @returns {Transaction}
@@ -67,11 +66,11 @@ async function buildTransaction(client, source, operation, options) {
 
     const request = async (server) => await server.simulateTransaction(transaction)
 
-    /**@type {SorobanRpc.Api.SimulateTransactionSuccessResponse} */
+    /**@type {rpc.Api.SimulateTransactionSuccessResponse} */
     const simulationResponse = await makeServerRequest(client.sorobanRpcUrl, request)
     if (simulationResponse.error)
         throw new Error(simulationResponse.error)
-    if (SorobanRpc.Api.isSimulationRestore(simulationResponse)) {
+    if (rpc.Api.isSimulationRestore(simulationResponse)) {
         console.info(`Simulation response is restore preamble. Contract ${client.contractId}. Building restore transaction.`)
         return getRestoreTransaction(simulationResponse, new Account(source.accountId(), source.sequence.toString()), txBuilderOptions)
     }
@@ -100,7 +99,7 @@ async function buildTransaction(client, source, operation, options) {
     simulationResponse.minResourceFee = resourceFee.toString()
     simulationResponse.transactionData.setResources(instructions, readBytes, writeBytes)
 
-    const tx = SorobanRpc.assembleTransaction(transaction, simulationResponse, client.network).build()
+    const tx = rpc.assembleTransaction(transaction, simulationResponse, client.network).build()
     console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${rawInstructions}:${instructions}, readBytes: ${rawReadBytes}:${readBytes}, writeBytes: ${rawWriteBytes}:${writeBytes}, fee: ${rawFee}:${resourceFee.toString()}`)
     return tx
 }
@@ -114,7 +113,7 @@ async function makeServerRequest(rpcUrls, requestFn) {
     const errors = []
     for (const rpcUrl of rpcUrls) {
         try {
-            const server = new SorobanRpc.Server(rpcUrl, {allowHttp: true})
+            const server = new rpc.Server(rpcUrl, {allowHttp: true})
             return await requestFn(server)
         } catch (e) {
             //if soroban rpc url failed, try next one

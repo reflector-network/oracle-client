@@ -1,6 +1,6 @@
 {
   "name": "@reflector/oracle-client",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "Client bindings for Reflector contract",
   "main": "src/index.js",
   "scripts": {
@@ -9,12 +9,12 @@
   "author": "team@stellar.expert",
   "license": "MIT",
   "peerDependencies": {
-    "@stellar/stellar-sdk": "12.2.0"
+    "@stellar/stellar-sdk": "13.0.0"
   },
   "devDependencies": {
     "@stellar-expert/eslint-config-js": "github:stellar-expert/eslint-config-js",
     "jest": "^29.5.0",
-    "tslib": "^2.5.0",
+    "tslib": "2.8.1",
     "@reflector/reflector-subscription-encryption": "github:reflector-network/reflector-subscription-encryption#v1.0.1",
     "crypto": "^1.0.1"
   }
