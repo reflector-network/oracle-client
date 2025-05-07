@@ -42,6 +42,19 @@ const {buildAssetScVal} = require('../xdr-values-helper')
  * @property {Asset} baseAsset - Base asset for the price
  */
 
+/**
+ * @typedef {Object} FeeData
+ * @property {string} token - fee asset address
+ * @property {BigInt} fee - fee in stroops
+ */
+
+/**
+ * @typedef {Object} ExtendAssetTtlArgs
+ * @property {string} sponsor - sponsor account id
+ * @property {Asset} asset - asset to extend
+ * @property {number} days - number of days to extend
+ */
+
 class OracleClient extends ContractClientBase {
 
     /**
@@ -139,6 +152,33 @@ class OracleClient extends ContractClientBase {
             args: [
                 xdr.ScVal.scvVec(update.prices.map(u => nativeToScVal(u, {type: 'i128'}))),
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
+            ]
+        })
+        return await buildTransaction(
+            this,
+            source,
+            invocation,
+            options
+        )
+    }
+
+    /**
+     * Builds a transaction to set fee data
+     * @param {Account} source - Account object
+     * @param {{admin: string, feeData: FeeData}} update - Fee data update
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async setFeeData(source, update, options) {
+        const invocation = Operation.invokeContractFunction({
+            source: update.admin,
+            contract: this.contractId,
+            function: 'set_fee',
+            args: [
+                xdr.ScVal.scvVec([
+                    new Address(update.feeData.token).toScVal(),
+                    nativeToScVal(update.feeData.fee, {type: 'i128'})
+                ])
             ]
         })
         return await buildTransaction(
@@ -376,6 +416,56 @@ class OracleClient extends ContractClientBase {
             ),
             options
         )
+    }
+
+    /**
+     * Builds a transaction to get asset's ttl
+     * @param {Account} source - Account object
+     * @param {Asset} asset - Asset to get ttl for
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async assetTtl(source, asset, options) {
+        return await buildTransaction(
+            this,
+            source,
+            this.contract.call(
+                'asset_ttl',
+                buildAssetScVal(asset)
+            ),
+            options
+        )
+    }
+
+    /**
+     * Builds a transaction to get asset price records in a period
+     * @param {Account} source - Account object
+     * @param {ExtendAssetTtlArgs} extendArgs - Extend asset ttl arguments
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async extendAssetTtl(source, extendArgs, options) {
+        return await buildTransaction(
+            this,
+            source,
+            this.contract.call(
+                'extend_asset_ttl',
+                new Address(extendArgs.sponsor).toScVal(),
+                buildAssetScVal(extendArgs.asset),
+                xdr.ScVal.scvU32(extendArgs.days)
+            ),
+            options
+        )
+    }
+
+    /**
+     * Builds a transaction to get fee data
+     * @param {Account} source - Account object
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async fee(source, options) {
+        return await buildTransaction(this, source, this.contract.call('fee'), options)
     }
 }
 

@@ -1,11 +1,11 @@
 /*eslint-disable no-undef*/
 /*eslint-disable no-inner-declarations */
 const crypto = require('crypto')
-const {Keypair, xdr, StrKey, Asset: StellarAsset, hash} = require('@stellar/stellar-sdk')
+const {Keypair, xdr, StrKey, Asset: StellarAsset, hash, Asset} = require('@stellar/stellar-sdk')
 const Client = require('../../src/oracle')
 const AssetType = require('../../src/asset-type')
 const {parseSorobanResult} = require('../../src/xdr-values-helper')
-const {init, createAccount, deployContract, installContract, getAccount, updateToMultiSigAccount, submitTx} = require('../test-utils')
+const {init, createAccount, deployContract, installContract, getAccount, updateToMultiSigAccount, submitTx, deployAsset, setTrust, mint} = require('../test-utils')
 const contractConfig = require('./example.contract.config.json')
 
 if (contractConfig.assets.length < 2)
@@ -104,8 +104,17 @@ async function prepare() {
         config.updateContractWasmHash = await installContract('./test/oracle/reflector_oracle.wasm', config.admin.secret())
         config.contractId = await deployContract(config.updateContractWasmHash, config.admin.secret())
 
-        config.adminAccount = await getAccount(config.admin.publicKey())
+        config.feeToken = await deployAsset(`FEE:${config.admin.publicKey()}`, config.admin.secret())
 
+        config.consumer = Keypair.random()
+        await createAccount(config.consumer.publicKey())
+        config.consumerAccount = await getAccount(config.consumer.publicKey())
+        await setTrust(config.consumerAccount, new Asset('FEE', config.admin.publicKey()), config.consumer)
+
+        config.adminAccount = await getAccount(config.admin.publicKey())
+        await mint(new Asset('FEE', config.admin.publicKey()), config.consumer.publicKey(), '1000000000', config.adminAccount, config.admin)
+
+        config.adminAccount = await getAccount(config.admin.publicKey())
         const nodePubkeys = config.nodes.map(k => k.publicKey())
         await updateToMultiSigAccount(config.adminAccount, config.admin, nodePubkeys)
 
@@ -117,14 +126,15 @@ async function prepare() {
 
         await updateToMultiSigAccount(config.updatesAdminAccount, config.updatesAdmin, nodePubkeys)
 
-
         //console all created account secrets and contracts ids
         console.log({
             admin: config.admin.secret(),
             updatesAdmin: config.updatesAdmin.secret(),
             nodes: config.nodes.map(k => k.secret()),
             contractId: config.contractId,
-            updateContractWasmHash: config.updateContractWasmHash
+            updateContractWasmHash: config.updateContractWasmHash,
+            feeToken: config.feeToken,
+            consumer: config.consumer.secret()
         })
     } else {
         config.admin = Keypair.fromSecret(config.admin)
@@ -178,6 +188,53 @@ test('config', async () => {
         response => {
             expect(response.status).toBe('SUCCESS')
             config.adminAccount.incrementSequenceNumber()
+        })
+}, 300000)
+
+
+test('set_fee', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+    await submitTx(
+        config.client.setFeeData(config.adminAccount, {
+            admin: config.admin.publicKey(),
+            feeData: {
+                token: config.feeToken,
+                fee: 10000000n
+            }
+        }, txOptions),
+        config.nodes,
+        response => {
+            expect(response.status).toBe('SUCCESS')
+            config.adminAccount.incrementSequenceNumber()
+        })
+}, 300000)
+
+test('fee', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+    await submitTx(
+        config.client.fee(config.adminAccount, txOptions),
+        config.nodes,
+        response => {
+            const fee = parseSorobanResult(response.resultMetaXdr)
+            expect(fee).toBeDefined()
+            expect(fee[1]).toBe(10000000n)
+            expect(fee[0]).toBe(config.feeToken)
+            config.adminAccount.incrementSequenceNumber()
+        })
+}, 300000)
+
+test('extendAssetTtl', async () => {
+    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+    await submitTx(
+        config.client.extendAssetTtl(config.consumerAccount, {
+            sponsor: config.consumer.publicKey(),
+            asset: contractConfig.assets[0],
+            days: 10
+        }, txOptions),
+        [config.consumer],
+        response => {
+            expect(response.status).toBe('SUCCESS')
+            config.consumerAccount.incrementSequenceNumber()
         })
 }, 300000)
 
