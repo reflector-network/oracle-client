@@ -182,7 +182,8 @@ test('config', async () => {
             baseAsset: tryEncodeAssetContractId(contractConfig.baseAsset, contractConfig.network),
             decimals: contractConfig.decimals,
             resolution: contractConfig.resolution,
-            period
+            period,
+            cacheSize: 3
         }, txOptions),
         config.nodes,
         response => {
@@ -192,12 +193,12 @@ test('config', async () => {
 }, 300000)
 
 
-test('set_fee', async () => {
+test('set_retention_config', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(
-        config.client.setFeeData(config.adminAccount, {
+        config.client.setRetentionConfig(config.adminAccount, {
             admin: config.admin.publicKey(),
-            feeData: {
+            retentionConfig: {
                 token: config.feeToken,
                 fee: 10000000n
             }
@@ -209,10 +210,10 @@ test('set_fee', async () => {
         })
 }, 300000)
 
-test('fee', async () => {
+test('retention_config', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(
-        config.client.fee(config.adminAccount, txOptions),
+        config.client.retention_config(config.adminAccount, txOptions),
         config.nodes,
         response => {
             const fee = parseSorobanResult(response.resultMetaXdr)
@@ -223,10 +224,10 @@ test('fee', async () => {
         })
 }, 300000)
 
-test('extendAssetTtl', async () => {
+test('extend', async () => {
     txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
     await submitTx(
-        config.client.extendAssetTtl(config.consumerAccount, {
+        config.client.extend(config.consumerAccount, {
             sponsor: config.consumer.publicKey(),
             asset: contractConfig.assets[0],
             days: 10

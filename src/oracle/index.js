@@ -40,16 +40,17 @@ const {buildAssetScVal} = require('../xdr-values-helper')
  * @property {number} decimals - Price precision
  * @property {number} resolution - Price resolution
  * @property {Asset} baseAsset - Base asset for the price
+ * @property {number} cacheSize - Size of the price cache
  */
 
 /**
- * @typedef {Object} FeeData
+ * @typedef {Object} RetentionConfig
  * @property {string} token - fee asset address
  * @property {BigInt} fee - fee in stroops
  */
 
 /**
- * @typedef {Object} ExtendAssetTtlArgs
+ * @typedef {Object} ExtendAssetExpirationArgs
  * @property {string} sponsor - sponsor account id
  * @property {Asset} asset - asset to extend
  * @property {number} days - number of days to extend
@@ -72,6 +73,7 @@ class OracleClient extends ContractClientBase {
                 val: xdr.ScVal.scvVec(config.assets.map(asset => buildAssetScVal(asset)))
             }),
             new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('base_asset'), val: buildAssetScVal(config.baseAsset)}),
+            new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('cache_size'), val: xdr.ScVal.scvU32(config.cacheSize)}),
             new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('decimals'), val: xdr.ScVal.scvU32(config.decimals)}),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('period'),
@@ -163,21 +165,21 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
-     * Builds a transaction to set fee data
+     * Builds a transaction to set retention configuration
      * @param {Account} source - Account object
-     * @param {{admin: string, feeData: FeeData}} update - Fee data update
+     * @param {{admin: string, retentionConfig: RetentionConfig}} update - Retention configuration update
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async setFeeData(source, update, options) {
+    async setRetentionConfig(source, update, options) {
         const invocation = Operation.invokeContractFunction({
             source: update.admin,
             contract: this.contractId,
-            function: 'set_fee',
+            function: 'set_retention_config',
             args: [
                 xdr.ScVal.scvVec([
-                    new Address(update.feeData.token).toScVal(),
-                    nativeToScVal(update.feeData.fee, {type: 'i128'})
+                    new Address(update.retentionConfig.token).toScVal(),
+                    nativeToScVal(update.retentionConfig.fee, {type: 'i128'})
                 ])
             ]
         })
@@ -419,18 +421,18 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
-     * Builds a transaction to get asset's ttl
+     * Builds a transaction to get asset's expiration time
      * @param {Account} source - Account object
-     * @param {Asset} asset - Asset to get ttl for
+     * @param {Asset} asset - Asset to get expiration time for
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async assetTtl(source, asset, options) {
+    async expires(source, asset, options) {
         return await buildTransaction(
             this,
             source,
             this.contract.call(
-                'asset_ttl',
+                'expires',
                 buildAssetScVal(asset)
             ),
             options
@@ -440,16 +442,16 @@ class OracleClient extends ContractClientBase {
     /**
      * Builds a transaction to get asset price records in a period
      * @param {Account} source - Account object
-     * @param {ExtendAssetTtlArgs} extendArgs - Extend asset ttl arguments
+     * @param {ExtendAssetExpirationArgs} extendArgs - Extend asset expiration time arguments
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async extendAssetTtl(source, extendArgs, options) {
+    async extend(source, extendArgs, options) {
         return await buildTransaction(
             this,
             source,
             this.contract.call(
-                'extend_asset_ttl',
+                'extend',
                 new Address(extendArgs.sponsor).toScVal(),
                 buildAssetScVal(extendArgs.asset),
                 xdr.ScVal.scvU32(extendArgs.days)
@@ -459,13 +461,13 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
-     * Builds a transaction to get fee data
+     * Builds a transaction to get retention configuration
      * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async fee(source, options) {
-        return await buildTransaction(this, source, this.contract.call('fee'), options)
+    async retention_config(source, options) {
+        return await buildTransaction(this, source, this.contract.call('retention_config'), options)
     }
 }
 

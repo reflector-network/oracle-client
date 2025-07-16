@@ -1,10 +1,11 @@
 {
   "name": "@reflector/oracle-client",
-  "version": "6.1.0",
+  "version": "7.0.0",
   "description": "Client bindings for Reflector contract",
   "main": "src/index.js",
   "scripts": {
-    "test": "jest -i"
+    "test": "jest -i",
+    "tx-gen": "cd ./test/dao && node tx-generation.js"
   },
   "author": "team@stellar.expert",
   "license": "MIT",
