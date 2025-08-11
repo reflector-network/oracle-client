@@ -50,7 +50,6 @@ function getRestoreTransaction(simulationResponse, source, txOptions) {
  * @returns {Promise<Transaction>}
  */
 async function buildTransaction(client, source, operation, options) {
-
     if (!options)
         throw new Error('options are required')
 
@@ -86,7 +85,7 @@ async function buildTransaction(client, source, operation, options) {
     const resources = simulationResponse.transactionData._data.resources()
     const [rawInstructions, rawReadBytes, rawWriteBytes] = [
         resources.instructions(),
-        resources.readBytes(),
+        resources.diskReadBytes(),
         resources.writeBytes()
     ]
     const [instructions, readBytes, writeBytes] = [

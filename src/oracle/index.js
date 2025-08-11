@@ -6,7 +6,7 @@ const {
 } = require('@stellar/stellar-sdk')
 const {buildTransaction} = require('../rpc-helper')
 const ContractClientBase = require('../client-base')
-const {buildAssetScVal} = require('../xdr-values-helper')
+const {buildAssetScVal, buildRetentionConfigScVal} = require('../xdr-values-helper')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').Account} Account
@@ -36,11 +36,12 @@ const {buildAssetScVal} = require('../xdr-values-helper')
  * @typedef {Object} Config
  * @property {string} admin - Valid Stellar account ID
  * @property {Asset[]} assets - Array of assets
- * @property {number} period - Redeem period in milliseconds
+ * @property {number} historyRetentionPeriod - History retention period in milliseconds
  * @property {number} decimals - Price precision
  * @property {number} resolution - Price resolution
  * @property {Asset} baseAsset - Base asset for the price
  * @property {number} cacheSize - Size of the price cache
+ * @property {RetentionConfig} [retentionConfig] - Retention configuration
  */
 
 /**
@@ -53,7 +54,7 @@ const {buildAssetScVal} = require('../xdr-values-helper')
  * @typedef {Object} ExtendAssetExpirationArgs
  * @property {string} sponsor - sponsor account id
  * @property {Asset} asset - asset to extend
- * @property {number} days - number of days to extend
+ * @property {BigInt} amount - amount to extend
  */
 
 class OracleClient extends ContractClientBase {
@@ -76,10 +77,17 @@ class OracleClient extends ContractClientBase {
             new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('cache_size'), val: xdr.ScVal.scvU32(config.cacheSize)}),
             new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('decimals'), val: xdr.ScVal.scvU32(config.decimals)}),
             new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('period'),
-                val: xdr.ScVal.scvU64(xdr.Uint64.fromString(config.period.toString()))
+                key: xdr.ScVal.scvSymbol('history_retention_period'),
+                val: xdr.ScVal.scvU64(xdr.Uint64.fromString(config.historyRetentionPeriod.toString()))
             }),
-            new xdr.ScMapEntry({key: xdr.ScVal.scvSymbol('resolution'), val: xdr.ScVal.scvU32(config.resolution)})
+            new xdr.ScMapEntry({
+                key: xdr.ScVal.scvSymbol('resolution'),
+                val: xdr.ScVal.scvU32(config.resolution)
+            }),
+            new xdr.ScMapEntry({
+                key: xdr.ScVal.scvSymbol('retention_config'),
+                val: buildRetentionConfigScVal(config.retentionConfig)
+            })
         ])
         const invocation = Operation.invokeContractFunction({
             source: config.admin,
@@ -120,16 +128,16 @@ class OracleClient extends ContractClientBase {
     /**
      * Builds a transaction to update period
      * @param {Account} source - Account object
-     * @param {{admin: string, period: number}} update - Retention period in milliseconds
+     * @param {{admin: string, historyRetentionPeriod: number}} update - Retention period in milliseconds
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async setPeriod(source, update, options) {
+    async setHistoryRetentionPeriod(source, update, options) {
         const invocation = Operation.invokeContractFunction({
             source: update.admin,
             contract: this.contractId,
-            function: 'set_period',
-            args: [xdr.ScVal.scvU64(xdr.Uint64.fromString(update.period.toString()))]
+            function: 'set_history_retention_period',
+            args: [xdr.ScVal.scvU64(xdr.Uint64.fromString(update.historyRetentionPeriod.toString()))]
         })
         return await buildTransaction(
             this,
@@ -176,12 +184,7 @@ class OracleClient extends ContractClientBase {
             source: update.admin,
             contract: this.contractId,
             function: 'set_retention_config',
-            args: [
-                xdr.ScVal.scvVec([
-                    new Address(update.retentionConfig.token).toScVal(),
-                    nativeToScVal(update.retentionConfig.fee, {type: 'i128'})
-                ])
-            ]
+            args: [buildRetentionConfigScVal(update.retentionConfig)]
         })
         return await buildTransaction(
             this,
@@ -222,13 +225,13 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
-     * Builds a transaction to get retention period
+     * Builds a transaction to get retention history period
      * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async period(source, options) {
-        return await buildTransaction(this, source, this.contract.call('period'), options)
+    async historyRetentionPeriod(source, options) {
+        return await buildTransaction(this, source, this.contract.call('history_retention_period'), options)
     }
 
     /**
@@ -446,15 +449,15 @@ class OracleClient extends ContractClientBase {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async extend(source, extendArgs, options) {
+    async extendAssetTtl(source, extendArgs, options) {
         return await buildTransaction(
             this,
             source,
             this.contract.call(
-                'extend',
+                'extend_asset_ttl',
                 new Address(extendArgs.sponsor).toScVal(),
                 buildAssetScVal(extendArgs.asset),
-                xdr.ScVal.scvU32(extendArgs.days)
+                nativeToScVal(extendArgs.amount, {type: 'i128'})
             ),
             options
         )
@@ -466,7 +469,7 @@ class OracleClient extends ContractClientBase {
      * @param {TxOptions} options - Transaction options
      * @returns {Promise<Transaction>} Prepared transaction
      */
-    async retention_config(source, options) {
+    async retentionConfig(source, options) {
         return await buildTransaction(this, source, this.contract.call('retention_config'), options)
     }
 }

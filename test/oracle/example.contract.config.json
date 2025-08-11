@@ -1,9 +1,9 @@
 {
-  "decimals": 14,
-  "resolution": 120000,
   "network": "Test SDF Network ; September 2015",
   "sorobanRpcUrl": "https://soroban-testnet.stellar.org",
   "friendbotUrl": "https://friendbot.stellar.org",
+  "decimals": 14,
+  "resolution": 120000,
   "assets": [
     {
       "type": 1,

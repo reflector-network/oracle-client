@@ -44,7 +44,7 @@ async function deployContract(hash, secret) {
 }
 
 async function installContract(contractPath, secret) {
-    const command = `stellar contract install --wasm ${contractPath} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
+    const command = `stellar contract upload --wasm ${contractPath} --source ${secret} --rpc-url ${rpcUrl} --network-passphrase "${network}" --fee 1000000000`
     return await exexCommand(command)
 }
 

@@ -92,209 +92,212 @@ const txOptions = {
     }
 }
 
-beforeAll(async () => {
-    await prepare()
-}, 3000000)
+describe('SubscriptionsClient', () => {
 
-test('config', async () => {
+    beforeAll(async () => {
+        await prepare()
+    }, 3000000)
+
+    test('config', async () => {
     //normalize to 1 minute and add 60 seconds
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.config(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            token: config.token,
-            fee: 100
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.config(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                token: config.token,
+                fee: 100
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('version', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-    await submitTx(
-        config.client.version(config.adminAccount, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            const version = parseSorobanResult(response.resultMetaXdr)
-            expect(version).toBeDefined()
-            config.adminAccount.incrementSequenceNumber()
-            return `Version: ${version}`
-        })
-}, 300000)
+    test('version', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.version(config.adminAccount, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                const version = parseSorobanResult(response.resultMetaXdr)
+                expect(version).toBeDefined()
+                config.adminAccount.incrementSequenceNumber()
+                return `Version: ${version}`
+            })
+    }, 300000)
 
-test('setFee', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.setFee(config.updatesAdminAccount, {
-            admin: config.admin.publicKey(),
-            fee: 50
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.updatesAdminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('setFee', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.setFee(config.updatesAdminAccount, {
+                admin: config.admin.publicKey(),
+                fee: 50
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.updatesAdminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('createSubscription', async () => {
-    let lastId = 0
-    for (let i = 0; i < 1; i++) {
-        try {
-            txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-            //random buffer
-            const webhook = crypto.randomBytes(1024)
-            await submitTx(
-                config.client.createSubscription(config.clientAccount, {
-                    owner: config.clientKp.publicKey(),
-                    base: {asset: 'BTC', source: 'exchanges'},
-                    quote: {asset: 'JPY:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW', source: 'pubnet'},
-                    threshold: 2,
-                    heartbeat: 60,
-                    webhook,
-                    amount: 1000
-                }, txOptions),
-                [config.clientKp],
-                response => {
-                    expect(response.status).toBe('SUCCESS')
-                    lastId++
-                    const [id] = parseSorobanResult(response.resultMetaXdr)
-                    expect(id).toBe(BigInt(lastId))
-                    config.clientAccount.incrementSequenceNumber()
-                })
-        } catch (e) {
-            console.log(e)
+    test('createSubscription', async () => {
+        let lastId = 0
+        for (let i = 0; i < 1; i++) {
+            try {
+                txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+                //random buffer
+                const webhook = crypto.randomBytes(1024)
+                await submitTx(
+                    config.client.createSubscription(config.clientAccount, {
+                        owner: config.clientKp.publicKey(),
+                        base: {asset: 'BTC', source: 'exchanges'},
+                        quote: {asset: 'JPY:GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW', source: 'pubnet'},
+                        threshold: 2,
+                        heartbeat: 60,
+                        webhook,
+                        amount: 1000
+                    }, txOptions),
+                    [config.clientKp],
+                    response => {
+                        expect(response.status).toBe('SUCCESS')
+                        lastId++
+                        const [id] = parseSorobanResult(response.resultMetaXdr)
+                        expect(id).toBe(BigInt(lastId))
+                        config.clientAccount.incrementSequenceNumber()
+                    })
+            } catch (e) {
+                console.log(e)
+            }
         }
-    }
-}, 30000000)
+    }, 30000000)
 
-test('getSubscription', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.getSubscription(config.clientAccount, {
-            subscriptionId: 1
-        }, txOptions),
-        [config.clientKp],
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            const subscription = parseSorobanResult(response.resultMetaXdr)
-            expect(subscription).toBeDefined()
-            config.clientAccount.incrementSequenceNumber()
-            return `Subscription: ${subscription}`
-        })
-}, 300000)
+    test('getSubscription', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.getSubscription(config.clientAccount, {
+                subscriptionId: 1
+            }, txOptions),
+            [config.clientKp],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                const subscription = parseSorobanResult(response.resultMetaXdr)
+                expect(subscription).toBeDefined()
+                config.clientAccount.incrementSequenceNumber()
+                return `Subscription: ${subscription}`
+            })
+    }, 300000)
 
-test('deposit', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.deposit(config.clientAccount, {
-            from: config.clientKp.publicKey(),
-            subscriptionId: 1,
-            amount: 100
-        }, txOptions),
-        [config.clientKp],
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('deposit', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.deposit(config.clientAccount, {
+                from: config.clientKp.publicKey(),
+                subscriptionId: 1,
+                amount: 100
+            }, txOptions),
+            [config.clientKp],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('charge', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.charge(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            ids: [1]
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('charge', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.charge(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                ids: [1]
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('trigger', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    const triggerHash = crypto.randomBytes(32)
-    await submitTx(
-        config.client.trigger(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            timestamp: Date.now(),
-            triggerHash
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('trigger', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        const triggerHash = crypto.randomBytes(32)
+        await submitTx(
+            config.client.trigger(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                timestamp: Date.now(),
+                triggerHash
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('cancelSubscription', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.cancel(config.clientAccount, {
-            subscriptionId: 1
-        }, txOptions),
-        [config.clientKp],
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('cancelSubscription', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.cancel(config.clientAccount, {
+                subscriptionId: 1
+            }, txOptions),
+            [config.clientKp],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('admin', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-    await submitTx(
-        config.client.admin(config.adminAccount, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            const adminPublicKey = parseSorobanResult(response.resultMetaXdr)
-            expect(config.admin.publicKey()).toBe(adminPublicKey)
-            config.adminAccount.incrementSequenceNumber()
-            return `Admin: ${adminPublicKey}`
-        })
-}, 300000)
+    test('admin', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.admin(config.adminAccount, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                const adminPublicKey = parseSorobanResult(response.resultMetaXdr)
+                expect(config.admin.publicKey()).toBe(adminPublicKey)
+                config.adminAccount.incrementSequenceNumber()
+                return `Admin: ${adminPublicKey}`
+            })
+    }, 300000)
 
-test('getFee', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-    await submitTx(
-        config.client.getFee(config.adminAccount, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            const fee = parseSorobanResult(response.resultMetaXdr)
-            expect(fee).toBeGreaterThan(0)
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('getFee', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.getFee(config.adminAccount, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                const fee = parseSorobanResult(response.resultMetaXdr)
+                expect(fee).toBeGreaterThan(0)
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
 
-test('getToken', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-    await submitTx(
-        config.client.getToken(config.adminAccount, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            expect(config.token).toBe(parseSorobanResult(response.resultMetaXdr))
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('getToken', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.getToken(config.adminAccount, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                expect(config.token).toBe(parseSorobanResult(response.resultMetaXdr))
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
 
-test('update_contract', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-    await submitTx(
-        config.client.updateContract(config.updatesAdminAccount, {
-            admin: config.admin.publicKey(),
-            wasmHash: config.updateContractWasmHash
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.updatesAdminAccount.incrementSequenceNumber()
-        })
-}, 300000)
+    test('update_contract', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.updateContract(config.updatesAdminAccount, {
+                admin: config.admin.publicKey(),
+                wasmHash: config.updateContractWasmHash
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.updatesAdminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+}, 3000000)
