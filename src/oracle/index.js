@@ -195,6 +195,28 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
+     * Builds a transaction to set cache size
+     * @param {Account} source - Account object
+     * @param {{admin: string, cacheSize: number}} update - Cache size update
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async setCacheSize(source, update, options) {
+        const invocation = Operation.invokeContractFunction({
+            source: update.admin,
+            contract: this.contractId,
+            function: 'set_cache_size',
+            args: [xdr.ScVal.scvU32(update.cacheSize)]
+        })
+        return await buildTransaction(
+            this,
+            source,
+            invocation,
+            options
+        )
+    }
+
+    /**
      * Builds a transaction to get base asset
      * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
@@ -471,6 +493,16 @@ class OracleClient extends ContractClientBase {
      */
     async retentionConfig(source, options) {
         return await buildTransaction(this, source, this.contract.call('retention_config'), options)
+    }
+
+    /**
+     * Builds a transaction to get cache size
+     * @param {Account} source - Account object
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async cacheSize(source, options) {
+        return await buildTransaction(this, source, this.contract.call('cache_size'), options)
     }
 }
 

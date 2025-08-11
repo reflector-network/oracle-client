@@ -232,6 +232,32 @@ describe('OracleClient', () => {
             })
     }, 300000)
 
+    test('set_cache_size', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.setCacheSize(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                cacheSize: 5
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('cache_size', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.cacheSize(config.adminAccount, txOptions),
+            config.nodes,
+            response => {
+                const cacheSize = parseSorobanResult(response.resultMetaXdr)
+                expect(cacheSize).toBe(5)
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
     test('extend_asset_ttl', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         await submitTx(
