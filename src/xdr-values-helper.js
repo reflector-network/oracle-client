@@ -35,17 +35,17 @@ function parseSorobanResult(result) {
 }
 
 /**
- * @param {{token: string, fee: bigint}} retentionConfig - Retention configuration
+ * @param {{token: string, fee: bigint}} feeConfig - Fee configuration
  * @return {xdr.ScVal}
  */
-function buildRetentionConfigScVal(retentionConfig) {
-    if (!retentionConfig)
+function buildFeeConfigScVal(feeConfig) {
+    if (!feeConfig)
         return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('None')])
     return xdr.ScVal.scvVec([
         xdr.ScVal.scvSymbol('Some'),
         xdr.ScVal.scvVec([
-            new Address(retentionConfig.token).toScVal(),
-            nativeToScVal(retentionConfig.fee, {type: 'i128'})
+            new Address(feeConfig.token).toScVal(),
+            nativeToScVal(feeConfig.fee, {type: 'i128'})
         ])
     ])
 }
@@ -54,5 +54,5 @@ module.exports = {
     buildAssetScVal,
     parseSorobanResult,
     buildTickerAssetScVal,
-    buildRetentionConfigScVal
+    buildFeeConfigScVal
 }

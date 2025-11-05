@@ -89,7 +89,7 @@ let lastTimestamp = null
 let currentPriceTimestamp = null
 
 function initTimestamps() {
-    lastTimestamp = currentPriceTimestamp = normalize_timestamp(Date.now())
+    lastTimestamp = currentPriceTimestamp = normalize_timestamp(Date.now()) - contractConfig.resolution
 }
 
 let historyRetentionPeriod = contractConfig.resolution * 10
@@ -168,17 +168,33 @@ const txOptions = {
     }
 }
 
+let version = 0
+
 describe('OracleClient', () => {
 
     beforeAll(async () => {
         await prepare()
     }, 3000000)
 
+    test('version', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.version(config.adminAccount, txOptions),
+            config.nodes,
+            response => {
+                version = parseSorobanResult(response.resultMetaXdr)
+                expect(version).toBeGreaterThan(0)
+                config.adminAccount.incrementSequenceNumber()
+                return `Version: ${version}`
+            })
+    }, 300000)
+
     test('config', async () => {
         //normalize to 1 minute and add 60 seconds
         txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        const fn = version < 6 ? 'config_v1' : 'config'
         await submitTx(
-            config.client.config(config.adminAccount, {
+            config.client[fn](config.adminAccount, {
                 admin: config.admin.publicKey(),
                 assets: contractConfig.assets.slice(0, initAssetLength),
                 baseAsset: tryEncodeAssetContractId(contractConfig.baseAsset, contractConfig.network),
@@ -201,10 +217,14 @@ describe('OracleClient', () => {
 
     test('set_retention_config', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        if (version < 6) {
+            console.log('Skipping set_retention_config test for version < 6')
+            return
+        }
         await submitTx(
-            config.client.setRetentionConfig(config.adminAccount, {
+            config.client.setFeeConfig(config.adminAccount, {
                 admin: config.admin.publicKey(),
-                retentionConfig: {
+                feeConfig: {
                     token: config.feeToken,
                     fee: 5000000n
                 }
@@ -217,9 +237,13 @@ describe('OracleClient', () => {
     }, 300000)
 
     test('retention_config', async () => {
+        if (version < 6) {
+            console.log('Skipping retention_config test for version < 6')
+            return
+        }
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         await submitTx(
-            config.client.retentionConfig(config.adminAccount, txOptions),
+            config.client.feeConfig(config.adminAccount, txOptions),
             config.nodes,
             response => {
                 const fee = parseSorobanResult(response.resultMetaXdr)
@@ -233,6 +257,10 @@ describe('OracleClient', () => {
     }, 300000)
 
     test('set_cache_size', async () => {
+        if (version < 6) {
+            console.log('Skipping set_cache_size test for version < 6')
+            return
+        }
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         await submitTx(
             config.client.setCacheSize(config.adminAccount, {
@@ -247,6 +275,10 @@ describe('OracleClient', () => {
     }, 300000)
 
     test('cache_size', async () => {
+        if (version < 6) {
+            console.log('Skipping cache_size test for version < 6')
+            return
+        }
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         await submitTx(
             config.client.cacheSize(config.adminAccount, txOptions),
@@ -259,6 +291,10 @@ describe('OracleClient', () => {
     }, 300000)
 
     test('extend_asset_ttl', async () => {
+        if (version < 6) {
+            console.log('Skipping extend_asset_ttl test for version < 6')
+            return
+        }
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         await submitTx(
             config.client.extendAssetTtl(config.consumerAccount, {
@@ -270,19 +306,6 @@ describe('OracleClient', () => {
             response => {
                 expect(response.status).toBe('SUCCESS')
                 config.consumerAccount.incrementSequenceNumber()
-            })
-    }, 300000)
-
-    test('version', async () => {
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        await submitTx(
-            config.client.version(config.adminAccount, txOptions),
-            config.nodes,
-            response => {
-                const version = parseSorobanResult(response.resultMetaXdr)
-                expect(version).toBeGreaterThan(0)
-                config.adminAccount.incrementSequenceNumber()
-                return `Version: ${version}`
             })
     }, 300000)
 
@@ -303,17 +326,18 @@ describe('OracleClient', () => {
     test('set_history_retention_period', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
         historyRetentionPeriod += contractConfig.resolution
+        const fn = version < 6 ? 'setHistoryRetentionPeriod_v1' : 'setHistoryRetentionPeriod'
         await submitTx(
-            config.client.setHistoryRetentionPeriod(config.updatesAdminAccount, {
+            config.client[fn](config.updatesAdminAccount, {
                 admin: config.admin.publicKey(),
                 historyRetentionPeriod
             }, txOptions), config.nodes, response => {
                 expect(response.status).toBe('SUCCESS')
                 config.updatesAdminAccount.incrementSequenceNumber()
             })
-
+        const fnGet = version < 6 ? 'historyRetentionPeriod_v1' : 'historyRetentionPeriod'
         await submitTx(
-            config.client.historyRetentionPeriod(config.adminAccount, txOptions),
+            config.client[fnGet](config.adminAccount, txOptions),
             config.nodes,
             response => {
                 const newPeriod = parseSorobanResult(response.resultMetaXdr)
@@ -322,42 +346,26 @@ describe('OracleClient', () => {
             })
     }, 300000)
 
-    test('set_price (extra price)', async () => {
-        contractConfig.assets.push(extraAsset)
-        const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
-        initTimestamps()
-        //30 seconds timeout + 15 seconds for DB delay
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-        await submitTx(
-            config.client.setPrice(
-                config.adminAccount,
-                {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp},
-                txOptions
-            ),
-            config.nodes,
-            response => {
-                expect(response.status).toBe('SUCCESS')
-                config.adminAccount.incrementSequenceNumber()
-            })
-        currentPriceTimestamp -= contractConfig.resolution
-    }, 300000)
-
     test('set_price', async () => {
-        const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
-
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-        await submitTx(
-            config.client.setPrice(
-                config.adminAccount,
-                {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp},
-                txOptions
-            ),
-            config.nodes,
-            response => {
-                expect(response.status).toBe('SUCCESS')
-                config.adminAccount.incrementSequenceNumber()
-            })
-        currentPriceTimestamp -= contractConfig.resolution
+        initTimestamps()
+        //create two updates to have data for price queries
+        const fn = version < 6 ? 'setPrices_v1' : 'setPrices'
+        for (let i = 0; i < 2; i++) {
+            const prices = Array.from({length: contractConfig.assets.length}, () => generateRandomI128())
+            txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+            await submitTx(
+                config.client[fn](
+                    config.adminAccount,
+                    {admin: config.admin.publicKey(), prices, timestamp: currentPriceTimestamp},
+                    txOptions
+                ),
+                config.nodes,
+                response => {
+                    expect(response.status).toBe('SUCCESS')
+                    config.adminAccount.incrementSequenceNumber()
+                })
+            currentPriceTimestamp += contractConfig.resolution
+        }
     }, 300000)
 
     test('twap', async () => {
@@ -488,10 +496,9 @@ describe('OracleClient', () => {
             response => {
                 expect(response.status).toBe('SUCCESS')
                 config.updatesAdminAccount.incrementSequenceNumber()
+                contractConfig.assets.push(extraAsset)
             })
     }, 300000)
-
-    //TODO: add test for get_price for extra asset before adding it (must be null) and after adding it (must be valid price)
 
     test('admin', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
@@ -548,8 +555,9 @@ describe('OracleClient', () => {
 
     test('history_retention_period', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        const fn = version < 6 ? 'historyRetentionPeriod_v1' : 'historyRetentionPeriod'
         await submitTx(
-            config.client.historyRetentionPeriod(config.adminAccount, txOptions),
+            config.client[fn](config.adminAccount, txOptions),
             config.nodes,
             response => {
                 const periodValue = parseSorobanResult(response.resultMetaXdr)
