@@ -338,6 +338,28 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
+     * Builds a transaction to set invocation cost
+     * @param {Account} source - Account object
+     * @param {{admin: string, invocationCosts: BigInt[]}} update - Invocation costs update
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async setInvocationCosts(source, update, options) {
+        const invocation = Operation.invokeContractFunction({
+            source: update.admin,
+            contract: this.contractId,
+            function: 'set_invocation_costs_config',
+            args: [xdr.ScVal.scvVec(update.invocationCosts.map(c => xdr.ScVal.scvU64(c)))]
+        })
+        return await buildTransaction(
+            this,
+            source,
+            invocation,
+            options
+        )
+    }
+
+    /**
      * Builds a transaction to get base asset
      * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
@@ -690,6 +712,16 @@ class OracleClient extends ContractClientBase {
      */
     async cacheSize(source, options) {
         return await buildTransaction(this, source, this.contract.call('cache_size'), options)
+    }
+
+    /**
+     * Builds a transaction to get invocation costs
+     * @param {Account} source - Account object
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction
+     */
+    async invocationCosts(source, options) {
+        return await buildTransaction(this, source, this.contract.call('invocation_costs'), options)
     }
 }
 
