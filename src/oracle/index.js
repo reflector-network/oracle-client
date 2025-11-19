@@ -24,6 +24,7 @@ const {buildAssetScVal, buildFeeConfigScVal} = require('../xdr-values-helper')
  * @property {number} fee - Transaction fee in stroops
  * @property {string} memo - Transaction memo
  * @property {{minTime: number | Data, maxTime: number | Date}} timebounds - Transaction timebounds. Date must be rounded to seconds
+ * @property {boolean} [simulationOnly] - whether to build simulation only
  */
 
 /**

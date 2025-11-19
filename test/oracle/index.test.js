@@ -189,15 +189,9 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
 
     test('version', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        await submitTx(
-            config.client.version(config.adminAccount, txOptions),
-            config.nodes,
-            response => {
-                version = parseSorobanResult(response.resultMetaXdr)
-                expect(version).toBeGreaterThan(0)
-                config.adminAccount.incrementSequenceNumber()
-                return `Version: ${version}`
-            })
+        const simResponse = await config.client.version(config.adminAccount, {...txOptions, simulationOnly: true})
+        expect(simResponse.result.retval.value()).toBeGreaterThan(0)
+        version = simResponse.result.retval.value()
     }, 300000)
 
     test('config', async () => {
