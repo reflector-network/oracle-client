@@ -282,7 +282,7 @@ class OracleClient extends ContractClientBase {
             contract: this.contractId,
             function: 'set_price',
             args: [
-                xdr.ScVal.scvVec(update.prices.filter(u => u > 0).map(u => nativeToScVal(u, {type: 'i128'}))),
+                xdr.ScVal.scvVec(update.prices.map(u => nativeToScVal(u, {type: 'i128'}))),
                 xdr.ScVal.scvU64(xdr.Uint64.fromString(update.timestamp.toString()))
             ]
         })
