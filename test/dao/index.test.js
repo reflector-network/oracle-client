@@ -109,211 +109,215 @@ const txOptions = {
     }
 }
 
-beforeAll(async () => {
-    await prepare()
+describe('DAOClient', () => {
+
+    beforeAll(async () => {
+        await prepare()
+    }, 3000000)
+
+    test('config', async () => {
+    //normalize to 1 minute and add 60 seconds
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.config(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                token: config.token,
+                amount: 100000000000,
+                depositParams: {
+                    "0": 100000,
+                    "1": 10000000,
+                    "2": 10000,
+                    "3": 10000000
+                },
+                //start date is now minus 2 weeks
+                startDate: Math.floor((Date.now() - 1209600000) / 1000)
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+
+    test('setDeposit', async () => {
+    //normalize to 1 minute and add 60 seconds
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.setDeposit(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                depositParams: {
+                    "0": 100000,
+                    "1": 10000001,
+                    "2": 10002,
+                    "3": 10000003
+                }
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+
+    test('unlock', async () => {
+    //normalize to 1 minute and add 60 seconds
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.unlock(config.adminAccount, {
+                admin: config.admin.publicKey(),
+                developer: config.developer.publicKey(),
+                operators: config.nodes.map(k => k.publicKey())
+            }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('available', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.available(config.developerAccount, config.developer.publicKey(), txOptions),
+            [config.developer],
+            response => {
+                const available = parseSorobanResult(response.resultMetaXdr)
+                expect(available).toBeGreaterThan(0)
+                config.developerAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('claim (dev)', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.claim(config.developerAccount,
+                {
+                    claimant: config.developer.publicKey(),
+                    to: config.developer.publicKey(),
+                    amount: 30000000n
+                }, txOptions),
+            [config.developer],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.developerAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('claim (operator)', async () => {
+        const operatorAccount = await getAccount(config.operator.publicKey())
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.claim(operatorAccount,
+                {
+                    claimant: config.operator.publicKey(),
+                    to: config.operator.publicKey(),
+                    amount: 24000000n
+                }, txOptions),
+            [config.operator],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+            })
+    }, 300000)
+
+    test('createBallot', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.createBallot(config.clientAccount, {
+                title: 'Test ballot',
+                description: 'Test ballot description',
+                category: '0'
+            }, txOptions),
+            [config.clientKp],
+            response => {
+                const ballotId = parseSorobanResult(response.resultMetaXdr)
+                expect(ballotId).toBe(1n)
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('getBallot', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.getBallot(config.clientAccount, '1', txOptions),
+            [config.clientKp],
+            response => {
+                const ballot = parseSorobanResult(response.resultMetaXdr)
+                expect(ballot.title).toBe('Test ballot')
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('vote', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.vote(config.adminAccount,
+                {
+                    admin: config.admin.publicKey(),
+                    ballotId: 1n,
+                    accepted: false
+                }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('retractBallot', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.retractBallot(config.clientAccount, '1', txOptions),
+            [config.clientKp],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('createBallot (accepted)', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.createBallot(config.clientAccount, {
+                title: 'Test ballot',
+                description: 'Test ballot description',
+                category: '1'
+            }, txOptions),
+            [config.clientKp],
+            response => {
+                const ballotId = parseSorobanResult(response.resultMetaXdr)
+                expect(ballotId).toBe(2n)
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('vote (accepted)', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.vote(config.adminAccount,
+                {
+                    admin: config.admin.publicKey(),
+                    ballotId: 2n,
+                    accepted: true
+                }, txOptions),
+            config.nodes,
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.adminAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('getBallot (accepted)', async () => {
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
+        await submitTx(
+            config.client.getBallot(config.clientAccount, '2', txOptions),
+            [config.clientKp],
+            response => {
+                const ballot = parseSorobanResult(response.resultMetaXdr)
+                expect(ballot.title).toBe('Test ballot')
+                config.clientAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
 }, 3000000)
-
-test('config', async () => {
-    //normalize to 1 minute and add 60 seconds
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.config(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            token: config.token,
-            amount: 100000000000,
-            depositParams: {
-                "0": 100000,
-                "1": 10000000,
-                "2": 10000,
-                "3": 10000000
-            },
-            //start date is now minus 2 weeks
-            startDate: Math.floor((Date.now() - 1209600000) / 1000)
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-
-test('setDeposit', async () => {
-    //normalize to 1 minute and add 60 seconds
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.setDeposit(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            depositParams: {
-                "0": 100000,
-                "1": 10000001,
-                "2": 10002,
-                "3": 10000003
-            }
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-
-test('unlock', async () => {
-    //normalize to 1 minute and add 60 seconds
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.unlock(config.adminAccount, {
-            admin: config.admin.publicKey(),
-            developer: config.developer.publicKey(),
-            operators: config.nodes.map(k => k.publicKey())
-        }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('available', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.available(config.developerAccount, config.developer.publicKey(), txOptions),
-        [config.developer],
-        response => {
-            const available = parseSorobanResult(response.resultMetaXdr)
-            expect(available).toBeGreaterThan(0)
-            config.developerAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('claim (dev)', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.claim(config.developerAccount,
-            {
-                claimant: config.developer.publicKey(),
-                to: config.developer.publicKey(),
-                amount: 30000000n
-            }, txOptions),
-        [config.developer],
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.developerAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('claim (operator)', async () => {
-    const operatorAccount = await getAccount(config.operator.publicKey())
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.claim(operatorAccount,
-            {
-                claimant: config.operator.publicKey(),
-                to: config.operator.publicKey(),
-                amount: 24000000n
-            }, txOptions),
-        [config.operator],
-        response => {
-            expect(response.status).toBe('SUCCESS')
-        })
-}, 300000)
-
-test('createBallot', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.createBallot(config.clientAccount, {
-            title: 'Test ballot',
-            description: 'Test ballot description',
-            category: '0'
-        }, txOptions),
-        [config.clientKp],
-        response => {
-            const ballotId = parseSorobanResult(response.resultMetaXdr)
-            expect(ballotId).toBe(1n)
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('getBallot', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.getBallot(config.clientAccount, '1', txOptions),
-        [config.clientKp],
-        response => {
-            const ballot = parseSorobanResult(response.resultMetaXdr)
-            expect(ballot.title).toBe('Test ballot')
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('vote', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.vote(config.adminAccount,
-            {
-                admin: config.admin.publicKey(),
-                ballotId: 1n,
-                accepted: false
-            }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('retractBallot', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.retractBallot(config.clientAccount, '1', txOptions),
-        [config.clientKp],
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('createBallot (accepted)', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.createBallot(config.clientAccount, {
-            title: 'Test ballot',
-            description: 'Test ballot description',
-            category: '1'
-        }, txOptions),
-        [config.clientKp],
-        response => {
-            const ballotId = parseSorobanResult(response.resultMetaXdr)
-            expect(ballotId).toBe(2n)
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('vote (accepted)', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.vote(config.adminAccount,
-            {
-                admin: config.admin.publicKey(),
-                ballotId: 2n,
-                accepted: true
-            }, txOptions),
-        config.nodes,
-        response => {
-            expect(response.status).toBe('SUCCESS')
-            config.adminAccount.incrementSequenceNumber()
-        })
-}, 300000)
-
-test('getBallot (accepted)', async () => {
-    txOptions.timebounds.maxTime = getNormalizedMaxDate(30000, 15000)
-    await submitTx(
-        config.client.getBallot(config.clientAccount, '2', txOptions),
-        [config.clientKp],
-        response => {
-            const ballot = parseSorobanResult(response.resultMetaXdr)
-            expect(ballot.title).toBe('Test ballot')
-            config.clientAccount.incrementSequenceNumber()
-        })
-}, 300000)

@@ -1,4 +1,4 @@
-const {xdr, Address, scValToNative} = require('@stellar/stellar-sdk')
+const {xdr, Address, scValToNative, nativeToScVal} = require('@stellar/stellar-sdk')
 const AssetType = require('./asset-type')
 
 /**
@@ -34,8 +34,25 @@ function parseSorobanResult(result) {
     return scValToNative(value)
 }
 
+/**
+ * @param {{token: string, fee: bigint}} feeConfig - Fee configuration
+ * @return {xdr.ScVal}
+ */
+function buildFeeConfigScVal(feeConfig) {
+    if (!feeConfig)
+        return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('None')])
+    return xdr.ScVal.scvVec([
+        xdr.ScVal.scvSymbol('Some'),
+        xdr.ScVal.scvVec([
+            new Address(feeConfig.token).toScVal(),
+            nativeToScVal(feeConfig.fee, {type: 'i128'})
+        ])
+    ])
+}
+
 module.exports = {
     buildAssetScVal,
     parseSorobanResult,
-    buildTickerAssetScVal
+    buildTickerAssetScVal,
+    buildFeeConfigScVal
 }

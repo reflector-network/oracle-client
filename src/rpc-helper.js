@@ -50,7 +50,6 @@ function getRestoreTransaction(simulationResponse, source, txOptions) {
  * @returns {Promise<Transaction>}
  */
 async function buildTransaction(client, source, operation, options) {
-
     if (!options)
         throw new Error('options are required')
 
@@ -70,6 +69,8 @@ async function buildTransaction(client, source, operation, options) {
     const simulationResponse = await makeServerRequest(client.sorobanRpcUrl, request)
     if (simulationResponse.error)
         throw new Error(simulationResponse.error)
+    if (options.simulationOnly)
+        return simulationResponse
     if (rpc.Api.isSimulationRestore(simulationResponse)) {
         console.info(`Simulation response is restore preamble. Contract ${client.contractId}. Building restore transaction.`)
         return getRestoreTransaction(simulationResponse, new Account(source.accountId(), source.sequence.toString()), txBuilderOptions)
