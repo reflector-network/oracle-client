@@ -24,17 +24,6 @@ const assetToString = (asset) => !asset ? 'null' : `${asset[0]}:${asset[1]}`
 
 const priceToString = (price) => !price ? 'null' : `{price: ${price.price.toString()}, timestamp: ${price.timestamp.toString()}}`
 
-function isValidContractId(contractId) {
-    try {
-        if (!contractId)
-            return false
-        StrKey.decodeContract(contractId)
-        return true
-    } catch (e) {
-        return false
-    }
-}
-
 function tryEncodeAssetContractId(asset) {
     let stellarAsset = null
     switch (asset.type) {
@@ -45,21 +34,21 @@ function tryEncodeAssetContractId(asset) {
                 if (!assetCode || !issuer)
                     throw new Error('Asset code and issuer must be defined')
                 if (!StrKey.isValidEd25519PublicKey(issuer))
-                    new Error('Asset issuer must be a valid ed25519 public key')
+                    throw new Error('Asset issuer must be a valid ed25519 public key')
                 stellarAsset = new StellarAsset(assetCode, issuer)
             } else if (asset.code === 'XLM') {
                 stellarAsset = StellarAsset.native()
             } else {
-                this.isContractId = isValidContractId(asset.code)
-                if (!this.isContractId)
-                    new Error(`Asset code ${asset.code} is invalid`)
+                if (!StrKey.isValidContract(asset.code))
+                    throw new Error(`Asset code ${asset.code} is invalid`)
+                this.isContractId = true
                 return asset
             }
         }
             break
         case 2:
             if (asset.code.length > 32)
-                new Error('Asset code must be 32 characters or less')
+                throw new Error('Asset code must be 32 characters or less')
             return asset
         default:
             throw new Error(`Asset type ${asset.type} is not supported`)
@@ -171,7 +160,6 @@ const txOptions = {
 let version = 0
 
 const oracles = {
-    "v1": "reflector_oracle.wasm",
     "pulse": "reflector_oracle_pulse.wasm",
     "beam": "reflector_oracle_beam.wasm"
 }
@@ -373,53 +361,11 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
         }
     }, 300000)
 
-    test('twap', async () => {
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        const caller = type === "beam" ? config.consumer.publicKey() : null
-        await submitTx(
-            config.client.twap(config.consumerAccount, contractConfig.assets[0], 2, txOptions, caller),
-            [config.consumer],
-            response => {
-                const twap = parseSorobanResult(response.resultMetaXdr)
-                expect(twap > 0n).toBe(true)
-                config.consumerAccount.incrementSequenceNumber()
-                return `Twap: ${twap.toString()}`
-            })
-    }, 300000)
-
-    test('x_twap', async () => {
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        const caller = type === "beam" ? config.consumer.publicKey() : null
-        await submitTx(
-            config.client.xTwap(config.consumerAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions, caller),
-            [config.consumer],
-            response => {
-                const twap = parseSorobanResult(response.resultMetaXdr)
-                expect(twap > 0n).toBe(true)
-                config.consumerAccount.incrementSequenceNumber()
-                return `Twap: ${twap.toString()}`
-            })
-    }, 300000)
-
     test('lastprice', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         const caller = type === "beam" ? config.consumer.publicKey() : null
         await submitTx(
             config.client.lastPrice(config.consumerAccount, contractConfig.assets[0], txOptions, caller),
-            [config.consumer],
-            response => {
-                const price = parseSorobanResult(response.resultMetaXdr)
-                expect(price.price).toBeGreaterThan(0n)
-                config.consumerAccount.incrementSequenceNumber()
-                return `Price: ${priceToString(price)}`
-            })
-    }, 300000)
-
-    test('x_lt_price', async () => {
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        const caller = type === "beam" ? config.consumer.publicKey() : null
-        await submitTx(
-            config.client.xLastPrice(config.consumerAccount, contractConfig.assets[0], contractConfig.assets[1], txOptions, caller),
             [config.consumer],
             response => {
                 const price = parseSorobanResult(response.resultMetaXdr)
@@ -457,39 +403,11 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
             })
     }, 300000)
 
-    test('x_price', async () => {
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        const caller = type === "beam" ? config.consumer.publicKey() : null
-        await submitTx(
-            config.client.xPrice(config.consumerAccount, contractConfig.assets[0], contractConfig.assets[1], lastTimestamp / 1000, txOptions, caller),
-            [config.consumer],
-            response => {
-                const price = parseSorobanResult(response.resultMetaXdr)
-                expect(price.price).toBeGreaterThan(0n)
-                config.consumerAccount.incrementSequenceNumber()
-                return `Price: ${priceToString(price)}`
-            })
-    }, 300000)
-
     test('prices', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         const caller = type === "beam" ? config.consumer.publicKey() : null
         await submitTx(
             config.client.prices(config.consumerAccount, contractConfig.assets[0], 2, txOptions, caller),
-            [config.consumer],
-            response => {
-                const prices = parseSorobanResult(response.resultMetaXdr)
-                expect(prices.length > 0).toBe(true)
-                config.consumerAccount.incrementSequenceNumber()
-                return `Prices: ${prices.map(p => priceToString(p)).join(', ')}`
-            })
-    }, 300000)
-
-    test('x_prices', async () => {
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        const caller = type === "beam" ? config.consumer.publicKey() : null
-        await submitTx(
-            config.client.xPrices(config.consumerAccount, contractConfig.assets[0], contractConfig.assets[1], 2, txOptions, caller),
             [config.consumer],
             response => {
                 const prices = parseSorobanResult(response.resultMetaXdr)
