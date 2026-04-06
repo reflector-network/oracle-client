@@ -1,6 +1,6 @@
 {
   "name": "@reflector/oracle-client",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "description": "Client bindings for Reflector contract",
   "main": "src/index.js",
   "scripts": {
@@ -10,7 +10,7 @@
   "author": "team@stellar.expert",
   "license": "MIT",
   "peerDependencies": {
-    "@stellar/stellar-sdk": ">=14"
+    "@stellar/stellar-sdk": ">=15"
   },
   "devDependencies": {
     "@stellar-expert/eslint-config-js": "github:stellar-expert/eslint-config-js",
