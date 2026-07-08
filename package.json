@@ -1,20 +1,20 @@
 {
   "name": "@reflector/oracle-client",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "description": "Client bindings for Reflector contract",
   "main": "src/index.js",
   "scripts": {
-    "test": "jest -i",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js -i",
     "tx-gen": "cd ./test/dao && node tx-generation.js"
   },
   "author": "team@stellar.expert",
   "license": "MIT",
   "peerDependencies": {
-    "@stellar/stellar-sdk": ">=15"
+    "@stellar/stellar-sdk": ">=16"
   },
   "devDependencies": {
     "@stellar-expert/eslint-config-js": "github:stellar-expert/eslint-config-js",
-    "jest": "^29.5.0",
+    "jest": "^30.4.2",
     "tslib": "2.8.1",
     "@reflector/reflector-subscription-encryption": "github:reflector-network/reflector-subscription-encryption#v1.0.1",
     "crypto": "^1.0.1"
