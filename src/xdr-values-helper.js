@@ -28,8 +28,8 @@ function buildTickerAssetScVal(tickerAsset) {
  * @returns {any}
  */
 function parseSorobanResult(result) {
-    const value = result.value().sorobanMeta().returnValue()
-    if (value.value() === false) //if footprint's data is different from the contract execution data, the result is false
+    const value = result.value.sorobanMeta.returnValue
+    if (value.value === false) //if footprint's data is different from the contract execution data, the result is false
         return undefined
     return scValToNative(value)
 }

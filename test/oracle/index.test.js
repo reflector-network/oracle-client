@@ -55,10 +55,10 @@ function tryEncodeAssetContractId(asset) {
     }
     const assetContractId = new xdr.HashIdPreimageContractId({
         networkId: hash(Buffer.from(contractConfig.network)),
-        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(stellarAsset.toXDRObject())
+        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(stellarAsset.toXdrObject())
     })
     const preimage = xdr.HashIdPreimage.envelopeTypeContractId(assetContractId)
-    return {type: 1, code: StrKey.encodeContract(hash(preimage.toXDR()))}
+    return {type: 1, code: StrKey.encodeContract(hash(preimage.toXdr()))}
 }
 
 function normalize_timestamp(timestamp, timeframe) {
@@ -178,8 +178,8 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
     test('version', async () => {
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
         const simResponse = await config.client.version(config.adminAccount, {...txOptions, simulationOnly: true})
-        expect(simResponse.result.retval.value()).toBeGreaterThan(0)
-        version = simResponse.result.retval.value()
+        expect(simResponse.result.retval.value).toBeGreaterThan(0)
+        version = simResponse.result.retval.value
     }, 300000)
 
     test('config', async () => {

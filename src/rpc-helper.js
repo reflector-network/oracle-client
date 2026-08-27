@@ -84,11 +84,11 @@ async function buildTransaction(client, source, operation, options) {
     if (resourceFee < 10000000n)
         resourceFee = 10000000n
 
-    const resources = simulationResponse.transactionData._data.resources()
+    const resources = simulationResponse.transactionData.build().resources
     const [rawInstructions, rawReadBytes, rawWriteBytes] = [
-        resources.instructions(),
-        resources.diskReadBytes(),
-        resources.writeBytes()
+        resources.instructions,
+        resources.diskReadBytes,
+        resources.writeBytes
     ]
     const [instructions, readBytes, writeBytes] = [
         roundValue(rawInstructions),
@@ -101,7 +101,7 @@ async function buildTransaction(client, source, operation, options) {
     simulationResponse.transactionData.setResources(instructions, readBytes, writeBytes)
 
     const tx = rpc.assembleTransaction(transaction, simulationResponse, client.network).build()
-    console.debug(`Transaction ${tx.hash().toString('hex')} cost: {cpuInsns: ${rawInstructions}:${instructions}, readBytes: ${rawReadBytes}:${readBytes}, writeBytes: ${rawWriteBytes}:${writeBytes}, fee: ${rawFee}:${resourceFee.toString()}`)
+    console.debug(`Transaction ${Buffer.from(tx.hash()).toString('hex')} cost: {cpuInsns: ${rawInstructions}:${instructions}, readBytes: ${rawReadBytes}:${readBytes}, writeBytes: ${rawWriteBytes}:${writeBytes}, fee: ${rawFee}:${resourceFee.toString()}`)
     return tx
 }
 

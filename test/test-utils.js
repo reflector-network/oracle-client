@@ -180,7 +180,7 @@ function signTransaction(transaction, keypairs) {
  * @returns {Promise<TransactionResponse>} Transaction response
  */
 async function submitTransaction(transaction, signatures = []) {
-    const txXdr = transaction.toXDR() //Get the raw XDR for the transaction to avoid modifying the transaction object
+    const txXdr = transaction.toXdr() //Get the raw XDR for the transaction to avoid modifying the transaction object
     const tx = new Transaction(txXdr, network) //Create a new transaction object from the XDR
     signatures.forEach(signature => tx.addDecoratedSignature(signature))
 
@@ -189,7 +189,7 @@ async function submitTransaction(transaction, signatures = []) {
     if (submitResult.status !== 'PENDING') {
         const error = new Error(`Transaction submit failed: ${submitResult.status}`)
         error.status = submitResult.status
-        error.errorResultXdr = submitResult.errorResult.toXDR('base64')
+        error.errorResultXdr = submitResult.errorResult.toXdr('base64')
         error.hash = submitResult.hash
         throw error
     }
