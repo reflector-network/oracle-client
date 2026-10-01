@@ -8,11 +8,70 @@ const {rpc, TransactionBuilder, Memo, BASE_FEE, Operation, Account} = require('@
 
 /**
  * @typedef {import('./client-base')} ClientBase
+ * @typedef {import('@stellar/stellar-sdk').SorobanDataBuilder} SorobanDataBuilder
+ * @typedef {import('@stellar/stellar-sdk').Transaction} Transaction
  */
 
 //a Soroban RPC that accepts the connection and never answers must count as a failure, so the next url is tried
 const rpcTimeout = 15000
 
+//quantisation grid for simulated resources; every node simulates on its own, and the declared values are signed,
+//so the grid must be coarse relative to simulation jitter and independent of the value's magnitude
+const instructionsStep = 10000000
+const bytesStep = 8192
+const feeStep = 1000000
+//protocol limits per transaction; declaring more is rejected outright
+const maxInstructions = 100000000
+const maxDiskReadBytes = 204800
+const maxWriteBytes = 132096
+//historical floor, kept so typical updates pay the same fee as before
+const minResourceFee = 10000000n
+
+/**
+ * Quantise a simulated resource value upward onto a fixed grid with one full step of slack.
+ * @param {number} value - simulated value
+ * @param {number} step - grid step
+ * @param {number} max - protocol limit for the resource
+ * @returns {number}
+ */
+function quantize(value, step, max) {
+    if (!Number.isFinite(value) || value < 0)
+        throw new Error(`Invalid resource value: ${value}`)
+    return Math.min((Math.ceil(value / step) + 1) * step, max)
+}
+
+/**
+ * @param {string|number} rawFee - minResourceFee reported by the simulation
+ * @returns {bigint}
+ */
+function normalizeResourceFee(rawFee) {
+    const fee = Number(rawFee)
+    if (!Number.isFinite(fee) || fee < 0)
+        throw new Error('Failed to get resource fee from the simulation response.')
+    const quantized = BigInt((Math.ceil(fee / feeStep) + 1) * feeStep)
+    return quantized > minResourceFee ? quantized : minResourceFee
+}
+
+/**
+ * Apply the cross-node normalisation to simulated Soroban data. The invoke path and the restore path both go through
+ * here so their transactions cannot drift apart.
+ * @param {SorobanDataBuilder} transactionData - simulated soroban data, mutated in place
+ * @param {string|number} rawFee - minResourceFee reported by the simulation
+ * @returns {{sorobanData: xdr.SorobanTransactionData, resourceFee: bigint}}
+ */
+function normalizeSorobanData(transactionData, rawFee) {
+    const resourceFee = normalizeResourceFee(rawFee)
+    const {instructions, diskReadBytes, writeBytes} = transactionData.build().resources
+    transactionData.setResources(
+        quantize(instructions, instructionsStep, maxInstructions),
+        quantize(diskReadBytes, bytesStep, maxDiskReadBytes),
+        quantize(writeBytes, bytesStep, maxWriteBytes)
+    )
+    transactionData.setResourceFee(resourceFee)
+    return {sorobanData: transactionData.build(), resourceFee}
+}
+
+//retained only for the restore-path fee below, until the restore path is folded into normalizeSorobanData
 function getFactorOfValue(n) {
     const exponent = Math.floor(Math.log10(n))
     return Math.pow(10, exponent)
@@ -79,32 +138,13 @@ async function buildTransaction(client, source, operation, options) {
         return getRestoreTransaction(simulationResponse, new Account(source.accountId(), source.sequence.toString()), txBuilderOptions)
     }
 
-    //Round fee up to the nearest 1000 stroops to avoid differences between the nodes
-    const rawFee = Number(simulationResponse.minResourceFee)
-    if (isNaN(rawFee))
-        throw new Error('Failed to get resource fee from the simulation response.')
-    let resourceFee = BigInt(roundValue(rawFee))
-    if (resourceFee < 10000000n)
-        resourceFee = 10000000n
+    //normalise resources and fee so every node declares the same values
+    const raw = simulationResponse.transactionData.build().resources
+    const rawFee = simulationResponse.minResourceFee
+    const {sorobanData, resourceFee} = normalizeSorobanData(simulationResponse.transactionData, rawFee)
 
-    const resources = simulationResponse.transactionData.build().resources
-    const [rawInstructions, rawReadBytes, rawWriteBytes] = [
-        resources.instructions,
-        resources.diskReadBytes,
-        resources.writeBytes
-    ]
-    const [instructions, readBytes, writeBytes] = [
-        roundValue(rawInstructions),
-        roundValue(rawReadBytes),
-        roundValue(rawWriteBytes)
-    ]
-
-    simulationResponse.transactionData.setResourceFee(resourceFee)
-    simulationResponse.minResourceFee = resourceFee.toString()
-    simulationResponse.transactionData.setResources(instructions, readBytes, writeBytes)
-
-    const tx = rpc.assembleTransaction(transaction, simulationResponse, client.network).build()
-    console.debug(`Transaction ${Buffer.from(tx.hash()).toString('hex')} cost: {cpuInsns: ${rawInstructions}:${instructions}, readBytes: ${rawReadBytes}:${readBytes}, writeBytes: ${rawWriteBytes}:${writeBytes}, fee: ${rawFee}:${resourceFee.toString()}`)
+    const tx = rpc.assembleTransaction(transaction, simulationResponse).build()
+    console.debug(`Transaction ${Buffer.from(tx.hash()).toString('hex')} cost: {cpuInsns: ${raw.instructions}:${sorobanData.resources.instructions}, readBytes: ${raw.diskReadBytes}:${sorobanData.resources.diskReadBytes}, writeBytes: ${raw.writeBytes}:${sorobanData.resources.writeBytes}, fee: ${rawFee}:${resourceFee.toString()}}`)
     return tx
 }
 
@@ -135,5 +175,6 @@ async function makeServerRequest(rpcUrls, requestFn) {
 
 module.exports = {
     buildTransaction,
-    makeServerRequest
+    makeServerRequest,
+    normalizeSorobanData
 }

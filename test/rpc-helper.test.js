@@ -140,3 +140,62 @@ describe('makeServerRequest', () => {
         expect(mockServers[0].httpClient.defaults.timeout).toBe(15000)
     })
 })
+
+describe('resource normalisation', () => {
+    const resources = {instructions: 25003000, readBytes: 1480, writeBytes: 1520, fee: 123456}
+
+    test('resources and fee land on the fixed grid with one step of slack', async () => {
+        mockSimulate = () => simulation(resources)
+        const tx = await buildTransaction(client(), account(), invocation(), txOptions())
+        const data = sorobanData(tx)
+        expect(data.resources.instructions).toBe(40000000)
+        expect(data.resources.diskReadBytes).toBe(16384)
+        expect(data.resources.writeBytes).toBe(16384)
+        expect(data.resourceFee).toBe(10000000n)
+        expect(tx.fee).toBe('10001000')
+        expect(tx.operations).toHaveLength(1)
+        expect(tx.operations[0].type).toBe('invokeHostFunction')
+    })
+
+    test('simulations that differ by realistic jitter produce the same transaction', async () => {
+        const build = async values => {
+            mockSimulate = () => simulation(values)
+            return (await buildTransaction(client(), account(), invocation(), txOptions())).toXDR()
+        }
+        const base = await build(resources)
+        const jittered = await build({instructions: 25006000, readBytes: 1520, writeBytes: 1560, fee: 123956})
+        expect(jittered).toBe(base)
+    })
+
+    test('the fee grid applies above the floor', async () => {
+        mockSimulate = () => simulation({...resources, fee: 12345678})
+        const tx = await buildTransaction(client(), account(), invocation(), txOptions())
+        expect(sorobanData(tx).resourceFee).toBe(14000000n)
+        expect(tx.fee).toBe('14001000')
+    })
+
+    test('resources are capped at the protocol limits', async () => {
+        mockSimulate = () => simulation({instructions: 99000000, readBytes: 204000, writeBytes: 130000, fee: 1})
+        const data = sorobanData(await buildTransaction(client(), account(), invocation(), txOptions()))
+        expect(data.resources.instructions).toBe(100000000)
+        expect(data.resources.diskReadBytes).toBe(204800)
+        expect(data.resources.writeBytes).toBe(132096)
+    })
+
+    test('a simulation without a numeric fee is rejected', async () => {
+        mockSimulate = () => simulation({...resources, minResourceFee: 'abc'})
+        await expect(buildTransaction(client(), account(), invocation(), txOptions()))
+            .rejects.toThrow('Failed to get resource fee from the simulation response.')
+    })
+
+    test('normalizeSorobanData rejects negative and non-finite resources', () => {
+        //the sdk validates ranges at construction, so a builder-shaped stub carries the bad value
+        const {normalizeSorobanData} = require('../src/rpc-helper')
+        const broken = {
+            build: () => ({resources: {instructions: -1, diskReadBytes: 0, writeBytes: 0}}),
+            setResources: () => broken,
+            setResourceFee: () => broken
+        }
+        expect(() => normalizeSorobanData(broken, '1')).toThrow('Invalid resource value: -1')
+    })
+})
