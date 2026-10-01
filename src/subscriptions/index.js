@@ -37,7 +37,7 @@ const ContractClientBase = require('../client-base')
  * @property {string} owner - Valid Stellar account ID
  * @property {TickerAsset} base - Base asset to subscribe
  * @property {TickerAsset} quote - Quote asset to subscribe
- * @property {number} threshold - Threshold value in percentage
+ * @property {number} threshold - Threshold value in per-mille (‰), e.g. 50 = 5%
  * @property {number} heartbeat - Heartbeat value in minutes
  * @property {Buffer} webhook - Webhook URL
  * @property {number} amount - Deposit amount
