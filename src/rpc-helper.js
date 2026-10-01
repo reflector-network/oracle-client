@@ -1,4 +1,4 @@
-const {rpc, TransactionBuilder, Memo, BASE_FEE, Operation, Account} = require('@stellar/stellar-sdk')
+const {rpc, TransactionBuilder, Memo, Operation, Account} = require('@stellar/stellar-sdk')
 
 /**
  * @callback RequestFn
@@ -71,36 +71,22 @@ function normalizeSorobanData(transactionData, rawFee) {
     return {sorobanData: transactionData.build(), resourceFee}
 }
 
-//retained only for the restore-path fee below, until the restore path is folded into normalizeSorobanData
-function getFactorOfValue(n) {
-    const exponent = Math.floor(Math.log10(n))
-    return Math.pow(10, exponent)
-}
-
-function roundValue(value) {
-    if (value === 0)
-        return value
-    const factor = getFactorOfValue(value)
-    return Math.floor(((value * 2) / factor)) * factor
-}
-
 /**
+ * Build the footprint-restore transaction the simulation asked for instead of the requested invocation. The result is
+ * marked with a non-enumerable `isRestore` so callers can tell it apart from the transaction they asked for.
  * @param {rpc.Api.SimulateTransactionRestoreResponse} simulationResponse - simulation response
  * @param {Account} source - Account object
- * @param {any} txOptions - Transaction options
+ * @param {any} txOptions - Transaction options; `fee` is the classic per-operation fee, as on the invoke path
  * @returns {Transaction}
  */
 function getRestoreTransaction(simulationResponse, source, txOptions) {
-    //normalize fee
-    let fee = parseInt(BASE_FEE, 10)
-    fee += parseInt(simulationResponse.restorePreamble.minResourceFee, 10)
-    txOptions.fee = roundValue(fee).toString()
-
-    //build restore transaction
+    const {restorePreamble} = simulationResponse
+    const {sorobanData} = normalizeSorobanData(restorePreamble.transactionData, restorePreamble.minResourceFee)
     const restoreTx = new TransactionBuilder(source, txOptions)
-        .setSorobanData(simulationResponse.restorePreamble.transactionData.build())
+        .setSorobanData(sorobanData)
         .addOperation(Operation.restoreFootprint({}))
         .build()
+    Object.defineProperty(restoreTx, 'isRestore', {value: true, enumerable: false})
     return restoreTx
 }
 
@@ -109,7 +95,7 @@ function getRestoreTransaction(simulationResponse, source, txOptions) {
  * @param {Account} source - Account object
  * @param {xdr.Operation} operation - Stellar operation
  * @param {TxOptions} options - Transaction options
- * @returns {Promise<Transaction>}
+ * @returns {Promise<Transaction>} the requested transaction, or, when the simulation demanded a footprint restore first, a restore transaction flagged with `isRestore`
  */
 async function buildTransaction(client, source, operation, options) {
     if (!options)

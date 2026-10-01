@@ -199,3 +199,38 @@ describe('resource normalisation', () => {
         expect(() => normalizeSorobanData(broken, '1')).toThrow('Invalid resource value: -1')
     })
 })
+
+describe('restore transactions', () => {
+    const resources = {instructions: 25003000, readBytes: 1480, writeBytes: 1520, fee: 123456}
+
+    test('a restore preamble yields a flagged, normalised restore transaction', async () => {
+        mockSimulate = () => restoreSimulation(resources)
+        const tx = await buildTransaction(client(), account(), invocation(), txOptions())
+        expect(tx.isRestore).toBe(true)
+        expect(Object.keys(tx)).not.toContain('isRestore')
+        expect(tx.operations).toHaveLength(1)
+        expect(tx.operations[0].type).toBe('restoreFootprint')
+        const data = sorobanData(tx)
+        expect(data.resources.instructions).toBe(40000000)
+        expect(data.resources.diskReadBytes).toBe(16384)
+        expect(data.resources.writeBytes).toBe(16384)
+        expect(data.resourceFee).toBe(10000000n)
+        expect(tx.fee).toBe('10001000')
+    })
+
+    test('restore simulations that differ by jitter produce the same transaction', async () => {
+        const build = async values => {
+            mockSimulate = () => restoreSimulation(values)
+            return (await buildTransaction(client(), account(), invocation(), txOptions())).toXDR()
+        }
+        const base = await build(resources)
+        const jittered = await build({instructions: 25006000, readBytes: 1520, writeBytes: 1560, fee: 123956})
+        expect(jittered).toBe(base)
+    })
+
+    test('the requested transaction carries no restore flag', async () => {
+        mockSimulate = () => simulation(resources)
+        const tx = await buildTransaction(client(), account(), invocation(), txOptions())
+        expect(tx.isRestore).toBeUndefined()
+    })
+})
