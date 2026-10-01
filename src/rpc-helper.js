@@ -1,4 +1,5 @@
 const {rpc, TransactionBuilder, Memo, Operation, Account} = require('@stellar/stellar-sdk')
+const {safeUrl, safeError} = require('./log-url-helper')
 
 /**
  * @callback RequestFn
@@ -14,6 +15,75 @@ const {rpc, TransactionBuilder, Memo, Operation, Account} = require('@stellar/st
 
 //a Soroban RPC that accepts the connection and never answers must count as a failure, so the next url is tried
 const rpcTimeout = 15000
+
+//The url that answered last, per configured url list. Without it every simulation walked the list in configured order,
+//so a first url that hangs cost its whole deadline on every build. The same helper lives in
+//reflector-shared helpers/entries-helper.js and reflector-node src/utils/rpc-helper.js. Each node already simulates on
+//its own configured urls, so the preference changes which of them answers, not what a payload is built from, and the
+//simulation result is normalised onto a fixed grid either way
+const lastGoodUrls = new Map()
+//distinct url lists one process uses: one per network
+const maxRememberedUrlLists = 16
+//a preference is dropped this long after it was set, so the configured order - the primary first - is tried again: a
+//node that failed over once would otherwise stay on a secondary that lags the primary long after the primary recovered
+const urlPreferenceTtl = 10 * 60 * 1000
+
+/**
+ * @param {string[]|Iterable<string>|string} urls - configured urls, in whatever form a caller passed them
+ * @returns {string[]} urls as an array, unchanged if it already was one
+ */
+function __toUrlList(urls) {
+    if (Array.isArray(urls))
+        return urls
+    if (typeof urls !== 'string' && typeof urls?.[Symbol.iterator] === 'function')
+        return Array.from(urls)
+    return [urls]
+}
+
+/**
+ * @param {string[]|Iterable<string>|string} urls - configured urls
+ * @returns {string[]} the url that answered last first, then the others in configured order; the configured order
+ * alone once the preference is older than urlPreferenceTtl
+ */
+function orderByLastGood(urls) {
+    urls = __toUrlList(urls)
+    const key = urls.join('\n')
+    const preferred = lastGoodUrls.get(key)
+    const index = preferred ? urls.indexOf(preferred.url) : -1
+    if (index < 0)
+        return urls
+    if (Date.now() - preferred.since >= urlPreferenceTtl) {
+        lastGoodUrls.delete(key)
+        return urls
+    }
+    //only the first occurrence moves: a url listed twice is still asked twice, so a failing request makes as many
+    //attempts as it did without the preference
+    return [urls[index], ...urls.slice(0, index), ...urls.slice(index + 1)]
+}
+
+/**
+ * @param {string[]|Iterable<string>|string} urls - configured urls
+ * @param {string} url - the url that answered
+ */
+function rememberGoodUrl(urls, url) {
+    urls = __toUrlList(urls)
+    const key = urls.join('\n')
+    const previous = lastGoodUrls.get(key)
+    //the time is kept while the same url keeps answering, so a preference still expires ten minutes after it was set
+    const since = previous && previous.url === url ? previous.since : Date.now()
+    //deleted and set again, so the first entry is always the list used longest ago
+    lastGoodUrls.delete(key)
+    lastGoodUrls.set(key, {url, since})
+    if (lastGoodUrls.size > maxRememberedUrlLists)
+        lastGoodUrls.delete(lastGoodUrls.keys().next().value)
+}
+
+/**
+ * Forgets every remembered url. A test seam: nothing in src/ calls it
+ */
+function resetUrlPreference() {
+    lastGoodUrls.clear()
+}
 
 //quantisation grid for simulated resources; every node simulates on its own, and the declared values are signed,
 //so the grid must be coarse relative to simulation jitter and independent of the value's magnitude
@@ -141,16 +211,20 @@ async function buildTransaction(client, source, operation, options) {
  */
 async function makeServerRequest(rpcUrls, requestFn) {
     const errors = []
-    for (const rpcUrl of rpcUrls) {
+    for (const rpcUrl of orderByLastGood(rpcUrls)) {
         try {
             const server = new rpc.Server(rpcUrl, {allowHttp: true, timeout: rpcTimeout})
             //sdk 17.0.1 forwards only the headers from the constructor options; the deadline has to live on the http client
             server.httpClient.defaults.timeout = rpcTimeout
-            return await requestFn(server)
+            const result = await requestFn(server)
+            rememberGoodUrl(rpcUrls, rpcUrl)
+            return result
         } catch (e) {
-            //if soroban rpc url failed, try next one
-            console.debug(`Failed to build update. Soroban RPC url: ${rpcUrl}, error: ${e.message}`)
-            errors.push(e)
+            //if soroban rpc url failed, try next one. The url and the failure are logged, and thrown to a caller that
+            //logs them, with no key a provider put in the url path
+            const failure = safeError(e)
+            console.debug(`Failed to build update. Soroban RPC url: ${safeUrl(rpcUrl) || 'invalid url'}, error: ${failure.message}`)
+            errors.push(failure)
         }
     }
     for (const e of errors) {
@@ -162,5 +236,6 @@ async function makeServerRequest(rpcUrls, requestFn) {
 module.exports = {
     buildTransaction,
     makeServerRequest,
-    normalizeSorobanData
+    normalizeSorobanData,
+    __resetUrlPreference: resetUrlPreference
 }
