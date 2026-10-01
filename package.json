@@ -5,10 +5,17 @@
   "main": "src/index.js",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js -i",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js -i --config jest.integration.config.js",
     "tx-gen": "cd ./test/dao && node tx-generation.js"
   },
   "author": "team@stellar.expert",
   "license": "MIT",
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/test/(oracle|dao|subscriptions)/"
+    ]
+  },
   "peerDependencies": {
     "@stellar/stellar-sdk": ">=17"
   },

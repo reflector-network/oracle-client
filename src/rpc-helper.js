@@ -10,6 +10,9 @@ const {rpc, TransactionBuilder, Memo, BASE_FEE, Operation, Account} = require('@
  * @typedef {import('./client-base')} ClientBase
  */
 
+//a Soroban RPC that accepts the connection and never answers must count as a failure, so the next url is tried
+const rpcTimeout = 15000
+
 function getFactorOfValue(n) {
     const exponent = Math.floor(Math.log10(n))
     return Math.pow(10, exponent)
@@ -114,7 +117,9 @@ async function makeServerRequest(rpcUrls, requestFn) {
     const errors = []
     for (const rpcUrl of rpcUrls) {
         try {
-            const server = new rpc.Server(rpcUrl, {allowHttp: true})
+            const server = new rpc.Server(rpcUrl, {allowHttp: true, timeout: rpcTimeout})
+            //sdk 17.0.1 forwards only the headers from the constructor options; the deadline has to live on the http client
+            server.httpClient.defaults.timeout = rpcTimeout
             return await requestFn(server)
         } catch (e) {
             //if soroban rpc url failed, try next one
@@ -125,7 +130,7 @@ async function makeServerRequest(rpcUrls, requestFn) {
     for (const e of errors) {
         console.error(e)
     }
-    throw new Error('Failed to make request.')
+    throw new Error('Failed to make request.', {cause: errors})
 }
 
 module.exports = {
