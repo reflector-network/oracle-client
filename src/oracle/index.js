@@ -252,28 +252,6 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
-     * Builds a transaction to set invocation cost
-     * @param {Account} source - Account object
-     * @param {{admin: string, invocationCosts: BigInt[]}} update - Invocation costs update
-     * @param {TxOptions} options - Transaction options
-     * @returns {Promise<Transaction>} Prepared transaction
-     */
-    async setInvocationCosts(source, update, options) {
-        const invocation = Operation.invokeContractFunction({
-            source: update.admin,
-            contract: this.contractId,
-            function: 'set_invocation_costs_config',
-            args: [xdr.ScVal.scvVec(update.invocationCosts.map(c => xdr.ScVal.scvU64(c)))]
-        })
-        return await buildTransaction(
-            this,
-            source,
-            invocation,
-            options
-        )
-    }
-
-    /**
      * Builds a transaction to get base asset
      * @param {Account} source - Account object
      * @param {TxOptions} options - Transaction options
@@ -432,7 +410,8 @@ class OracleClient extends ContractClientBase {
     }
 
     /**
-     * Builds a transaction to get asset price records in a period
+     * Builds a transaction to extend how long a price oracle keeps publishing an asset (price oracles only; a beam sells
+     * access through track instead)
      * @param {Account} source - Account object
      * @param {ExtendAssetExpirationArgs} extendArgs - Extend asset expiration time arguments
      * @param {TxOptions} options - Transaction options
@@ -447,6 +426,53 @@ class OracleClient extends ContractClientBase {
                 new Address(extendArgs.sponsor).toScVal(),
                 buildAssetScVal(extendArgs.asset),
                 nativeToScVal(extendArgs.amount, {type: 'i128'})
+            ),
+            options
+        )
+    }
+
+    /**
+     * Builds a transaction that buys a consumer access to a beam's price feeds. The sponsor pays the amount in the fee
+     * token, split evenly between the assets and converted to access time at the beam's daily rate
+     * @param {Account} source - Account object
+     * @param {{sponsor: string, consumer: string, assets: Asset[], amount: BigInt}} trackArgs - who pays, who reads, the
+     * assets and the amount
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction; the contract returns the new access expiration (seconds) per
+     * asset
+     */
+    async track(source, trackArgs, options) {
+        return await buildTransaction(
+            this,
+            source,
+            this.contract.call(
+                'track',
+                new Address(trackArgs.sponsor).toScVal(),
+                new Address(trackArgs.consumer).toScVal(),
+                xdr.ScVal.scvVec(trackArgs.assets.map(buildAssetScVal)),
+                nativeToScVal(trackArgs.amount, {type: 'i128'})
+            ),
+            options
+        )
+    }
+
+    /**
+     * Builds a transaction to read when a consumer's access to a beam's price feeds expires
+     * @param {Account} source - Account object
+     * @param {string} consumer - Consumer account or contract address
+     * @param {Asset[]} assets - Assets to check
+     * @param {TxOptions} options - Transaction options
+     * @returns {Promise<Transaction>} Prepared transaction; the contract returns the access expiration (seconds, 0 when
+     * none) per asset
+     */
+    async trackedUntil(source, consumer, assets, options) {
+        return await buildTransaction(
+            this,
+            source,
+            this.contract.call(
+                'tracked_until',
+                new Address(consumer).toScVal(),
+                xdr.ScVal.scvVec(assets.map(buildAssetScVal))
             ),
             options
         )
@@ -470,16 +496,6 @@ class OracleClient extends ContractClientBase {
      */
     async cacheSize(source, options) {
         return await buildTransaction(this, source, this.contract.call('cache_size'), options)
-    }
-
-    /**
-     * Builds a transaction to get invocation costs
-     * @param {Account} source - Account object
-     * @param {TxOptions} options - Transaction options
-     * @returns {Promise<Transaction>} Prepared transaction
-     */
-    async invocationCosts(source, options) {
-        return await buildTransaction(this, source, this.contract.call('invocation_costs'), options)
     }
 }
 

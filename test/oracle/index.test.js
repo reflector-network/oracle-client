@@ -284,8 +284,8 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
     }, 300000)
 
     test('extend_asset_ttl', async () => {
-        if (type === "v1") {
-            console.log('Skipping extend_asset_ttl test for v1')
+        if (type === "v1" || type === "beam") {
+            console.log(`Skipping extend_asset_ttl test for ${type}`)
             return
         }
         txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
@@ -299,6 +299,44 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
             response => {
                 expect(response.status).toBe('SUCCESS')
                 config.consumerAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('track', async () => {
+        if (type !== "beam") {
+            console.log('Skipping track test for non-beam types')
+            return
+        }
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.track(config.consumerAccount, {
+                sponsor: config.consumer.publicKey(),
+                consumer: config.consumer.publicKey(),
+                assets: [contractConfig.assets[0]],
+                amount: 2500000n
+            }, txOptions),
+            [config.consumer],
+            response => {
+                expect(response.status).toBe('SUCCESS')
+                config.consumerAccount.incrementSequenceNumber()
+            })
+    }, 300000)
+
+    test('tracked_until', async () => {
+        if (type !== "beam") {
+            console.log('Skipping tracked_until test for non-beam types')
+            return
+        }
+        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
+        await submitTx(
+            config.client.trackedUntil(config.consumerAccount, config.consumer.publicKey(), [contractConfig.assets[0]], txOptions),
+            [config.consumer],
+            response => {
+                const until = parseSorobanResult(response.resultMetaXdr)
+                expect(until.length).toBe(1)
+                expect(until[0]).toBeGreaterThan(0n)
+                config.consumerAccount.incrementSequenceNumber()
+                return `Tracked until: ${until.join(', ')}`
             })
     }, 300000)
 
@@ -523,46 +561,6 @@ describe.each(Object.entries(oracles))(`OracleClient %s`, (type, wasm) => {
                 expect(timestamp).toBeLessThanOrEqual(2147483647)
                 config.consumerAccount.incrementSequenceNumber()
                 return `Timestamp: ${timestamp}`
-            })
-    }, 300000)
-
-    test('set_invocation_cost', async () => {
-        if (type !== "beam") {
-            console.log('Skipping set_invocation_cost test for non-beam types')
-            return
-        }
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        await submitTx(
-            config.client.setInvocationCosts(config.updatesAdminAccount, {
-                admin: config.admin.publicKey(),
-                invocationCosts: [1000000n, 2000000n, 3000000n, 4000000n, 5000000n]
-            }, txOptions),
-            config.nodes,
-            response => {
-                expect(response.status).toBe('SUCCESS')
-                config.updatesAdminAccount.incrementSequenceNumber()
-            })
-    }, 300000)
-
-    test('invocation_costs', async () => {
-        if (type !== "beam") {
-            console.log('Skipping invocation_costs test for non-beam types')
-            return
-        }
-        txOptions.timebounds.maxTime = getNormalizedMaxDate(60000, 30000)
-        await submitTx(
-            config.client.invocationCosts(config.consumerAccount, txOptions),
-            [config.consumer],
-            response => {
-                const costs = parseSorobanResult(response.resultMetaXdr)
-                expect(costs.length).toBe(5)
-                expect(costs[0]).toBe(1000000n)
-                expect(costs[1]).toBe(2000000n)
-                expect(costs[2]).toBe(3000000n)
-                expect(costs[3]).toBe(4000000n)
-                expect(costs[4]).toBe(5000000n)
-                config.consumerAccount.incrementSequenceNumber()
-                return `Invocation costs: ${costs.join(', ')}`
             })
     }, 300000)
 
